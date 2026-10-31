@@ -1,0 +1,26 @@
+{
+  "meta": {
+    "title": "Mobile Bridge",
+    "description": "Pair a phone browser with this Desktop instance: shared Web UI, streaming output, and tool-call approvals (once / always / reject)."
+  },
+  "pair": {
+    "title": "Pair a phone",
+    "hint": "Scan the QR code, or open the URL and enter the code.",
+    "code": "Pairing code",
+    "url": "Address",
+    "expires": "Expires in",
+    "expired": "This code has expired. Reload to get a new one.",
+    "submit": "Pair"
+  },
+  "approval": {
+    "title": "Tool approval",
+    "waiting": "Waiting for your decision",
+    "once": "Allow once",
+    "always": "Always allow",
+    "reject": "Reject",
+    "timeout": "Timed out — rejected by default",
+    "remember": "Will remember:",
+    "riskHigh": "High risk",
+    "riskNormal": "Needs confirmation"
+  }
+}

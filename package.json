@@ -1,0 +1,66 @@
+{
+  "name": "dsh-mobile-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "用手机浏览器安全接入 DSH Desktop：扫码配对、流式回显、工具审批（once / always / reject）。",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "lib",
+    "test",
+    "locale/*.json",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node test/approval-bridge.test.mjs",
+    "check": "node --check index.js && node --check client.js"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "dsh-plugin",
+    "mobile",
+    "remote",
+    "qrcode",
+    "approval",
+    "tailscale"
+  ],
+  "author": "msz-legend",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/msz-legend/dsh-mobile-bridge.git"
+  },
+  "homepage": "https://github.com/msz-legend/dsh-mobile-bridge#readme",
+  "bugs": {
+    "url": "https://github.com/msz-legend/dsh-mobile-bridge/issues"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": []
+    }
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

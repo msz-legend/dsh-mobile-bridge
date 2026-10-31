@@ -1,0 +1,19 @@
+# dsh-mobile-bridge bundle patch.
+#
+# 只插入一行，不覆盖、不禁用任何既有行 —— 这是刻意的：
+# 业务约束要求「不修改 DSH 源码，只用官方插件机制」，而本插件连宿主配置都不需要改。
+# 原因见 README「零配置」一节：edge 反代会把 Host/Origin 改写成 loopback，
+# 因此不需要 connection.trustedHosts，也不需要 web-runtime.publicUrl。
+- insert:
+    - id: dsh-mobile-bridge
+      name: 'dsh-mobile-bridge'
+      config:
+        enabled: true
+        # edge 监听端口（Tailscale serve 或局域网直连都指向它）。
+        edgePort: 8787
+        # 监听地址：默认只绑 loopback，靠 Tailscale serve 外出。
+        # 想让局域网内手机直连（不装 Tailscale）就改成你本机的 LAN IP，例如 192.168.0.108。
+        edgeHost: '127.0.0.1'
+        # 留空 = 自动探测（先试 tailscale，再退回 LAN 地址）。
+        # 装了 Tailscale 后可显式写成 https://<machine>.<tailnet>.ts.net
+        publicBase: ''

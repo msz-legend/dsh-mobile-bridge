@@ -1,0 +1,183 @@
+# DSH Mobile Bridge
+
+用手机浏览器安全接入本机的 **DSH Desktop**：扫码配对、复用同一套 Web UI、流式回显、停止输出，以及**工具审批卡片**（仅本次 / 始终允许 / 拒绝）。
+
+不重建前端：手机加载的就是桌面那份 Web UI，因此 `/api/remote.mux` 的 WebSocket、`session/follow` 的流式帧、`session.create` / `session.prompt` 的 Prompt 路径全部原样复用。
+
+---
+
+## 它解决什么问题
+
+DSH Desktop 的 Web 载体只监听 `127.0.0.1`（启动参数硬编码 `--host 127.0.0.1 --port 0`），手机无法直连；而宿主又没有「手机审批」这条通路。本插件做两件事：
+
+1. **边缘网关（edge）**：在 `127.0.0.1:8787`（可选同时绑定 LAN IP）监听，把手机流量反代到宿主，并做设备令牌闸门。
+2. **审批桥接**：作为 `approval/request` waterfall 的监听器参与宿主决策，把请求推给手机卡片，把手机决策回传；超时与离线按 fail closed 处理。
+
+## 架构
+
+```
+手机浏览器
+   │  https://<tailnet>/  （Tailscale serve 终止 TLS）
+   ▼
+edge (127.0.0.1:8787 / LAN IP:8787)      ← 设备令牌闸门 + 限速 + 反代
+   │  改写 Host/Origin → 127.0.0.1:<dshPort>
+   ▼
+DSH webServer 127.0.0.1:<随机端口>
+   ├── /                      现有 Web UI（同源 WS、同源 RPC）
+   ├── /api/remote.mux        WebSocket（流式输出）
+   └── /plugins/dsh-mobile-bridge/...   配对页 / SSE / 决策 / 状态
+
+宿主 approval/request waterfall
+   └── 本插件 handler { prepend: true, global: true }
+         ├─ always 规则命中 → 直接 allowed-once（不再打扰）
+         ├─ 无在线设备 + 远程会话 → unavailable（fail closed）
+         ├─ 无在线设备 + 本地会话 → next()（交还桌面 UI）
+         └─ 有设备 → SSE 推卡片 → 等决策 → 返回 allowed-once/rejected
+```
+
+### 为什么「零配置」
+
+宿主的信任围栏校验的是 **`Host` 头**（允许 loopback / 监听绑定地址 / `trustedHosts`），并要求 `Origin` 与之同 authority。edge 在反代时把两者都改写成 `127.0.0.1:<dshPort>`，于是：
+
+- 不需要 `connection.trustedHosts`
+- 不需要 `web-runtime.publicUrl`
+- 不需要改 `webserver.host`（Desktop 的硬编码监听与内嵌页不受影响）
+
+插件的 `cordis.patch.yml` 只**插入一行**，不覆盖、不禁用任何既有行。
+
+## 安装
+
+```sh
+# 在 DSH Desktop 里，把本目录作为 bundle 安装
+#   plugin_manager action=install_bundle target=<本目录绝对路径>
+```
+
+或手工把它写进 profile 的 `dependencies`（`link:<本目录>`）与 `dsh.profile.bundles`，然后重启 Desktop。
+
+依赖只有一个：`qrcode`（用于生成配对二维码；缺失时页面自动降级为「地址 + 配对码」文本）。
+
+## 配对
+
+1. 桌面打开 `http://127.0.0.1:<dshPort>/plugins/dsh-mobile-bridge/pair`（或在会话里让 agent 调用同域接口），会显示 **6 位一次性配对码 + 二维码**，有效期 5 分钟。
+2. 手机扫码，或在手机上打开 `${publicBase}/plugins/dsh-mobile-bridge/pair` 输入配对码。
+3. 配对成功：手机拿到**长期设备令牌**（HttpOnly Cookie，1 年）；同时 edge 服务端完成 DSH 登录交换，把宿主的 owner cookie 一并种下，随后 302 进入 Web UI。
+
+配对码限制：5 分钟 TTL、一次性、同码最多 3 次尝试即作废；配对接口按 IP 每分钟 20 次限速，超限熔断 10 分钟；默认最多 5 台设备。
+
+### 撤销
+
+```sh
+# 查看设备与在线状态（仅 loopback 可读）
+curl http://127.0.0.1:<dshPort>/plugins/dsh-mobile-bridge/status
+
+# 撤销某台设备（立即生效：该设备再也进不来）
+curl -X POST -H 'content-type: application/json' \
+  -d '{"deviceId":"dev_xxx"}' \
+  http://127.0.0.1:<dshPort>/plugins/dsh-mobile-bridge/devices/revoke
+```
+
+## 外网接入（Tailscale）
+
+推荐 **`tailscale serve`（仅 tailnet 可见）**，不要用 Funnel。原因见下方安全红线。
+
+```sh
+# 1) 本机与手机安装 Tailscale 并登录同一账号
+# 2) 把 tailnet 内地址转发到 edge
+tailscale serve --bg http://127.0.0.1:8787
+# 3) 确认 publicBase
+curl http://127.0.0.1:<dshPort>/plugins/dsh-mobile-bridge/status
+```
+
+插件会自动探测 `tailscale status --json` 里的 DNS 名作为 `publicBase`；探测不到就退回 LAN 地址。也可以在 `cordis.patch.yml` 里显式写死：
+
+```yaml
+- id: dsh-mobile-bridge
+  name: 'dsh-mobile-bridge'
+  config:
+    publicBase: 'https://<machine>.<tailnet>.ts.net'
+```
+
+## 配置项
+
+| 键 | 默认 | 说明 |
+|---|---|---|
+| `enabled` | `true` | 总开关 |
+| `edgeHost` | `'127.0.0.1'` | edge 监听地址；写 `'auto'` 则自动选 LAN IP + loopback |
+| `edgePort` | `8787` | edge 端口 |
+| `enableLan` | `true` | 除 loopback 外，是否额外绑定本机 LAN IP（手机局域网直连） |
+| `publicBase` | `''` | 对外地址；留空 = 自动探测（Tailscale → LAN → loopback） |
+| `pairingTtlMs` | `300000` | 配对码有效期 |
+| `pairingMaxAttempts` | `3` | 同一配对码允许的尝试次数 |
+| `approvalTimeoutMs` | `60000` | 本地会话审批超时 |
+| `approvalTimeoutRemoteMs` | `30000` | 远程会话审批超时 |
+| `alwaysScope` | `'session'` | `always` 规则作用域：`session` / `global` |
+| `maxDevices` | `5` | 最大配对设备数 |
+| `storeDir` | `~/.dsh/dsh-mobile-bridge` | 设备表与 always 规则的落盘目录（0600） |
+
+## 审批语义
+
+宿主 `ApprovalOutcome` 只有 `allowed-once | rejected | cancelled | unavailable`，**`allowed-once` 是唯一授权值**。所以：
+
+| 卡片动作 | 对宿主的返回值 | 记忆 |
+|---|---|---|
+| 仅本次 | `allowed-once` | 不记忆 |
+| 始终允许 | `allowed-once` | 记下 `(工具名, 参数指纹)`，之后同类请求不再弹卡 |
+| 拒绝 | `rejected` | 不记忆 |
+| 超时 | `unavailable` | fail closed |
+| 手机离线 + 远程会话 | `unavailable` | 不静默放行、不交还桌面 |
+| 手机离线 + 本地会话 | `next()` | 交还桌面原生审批卡 |
+
+「始终允许」的参数指纹只从稳定字段提取：`command`（取命令前两段）、`path`（取目录）、`url`（取 host）、`query`。识别不了就退化为「仅工具名」，并在卡片上明确标注 —— 不让用户误判放行范围。
+
+**审批应答通道**：`approval/request` waterfall 的返回值本身（claim）或 `next()`（委托）。`approval/asked` / `approval/decided` 是 log-only 审计事件，本插件只读不用作答。
+
+## 安全红线
+
+- 通过 cookie / token 进来的浏览器 Peer 是 **`owner`**，而宿主 `ctx.remoteAccess` 的 RBAC 只约束**非 owner**。**因此隧道暴露 = owner 级 RCE**。
+- 所以：只用 `tailscale serve`（tailnet 内可见），**不要开 Funnel**；edge 强制设备令牌，未配对请求不转发给宿主；设备数与配对尝试都有限制。
+- 明文 HTTP 下 cookie 在途不加密；Tailscale 形态下 TLS 由 Tailscale 终止，本机仍是明文 HTTP（cookie 不带 `Secure`，浏览器经 https 仍会发送）。
+
+## 移动端适配
+
+`webServer.tapIndex` 注入（只作用于 Web 入口，Electron 不受影响）：
+
+- `<meta name="viewport" ... viewport-fit=cover>`
+- `AbortSignal.any` / `AbortSignal.timeout` polyfill（旧 iOS/Chrome 缺失会让页面直接崩）
+- 安全区 `env(safe-area-inset-bottom)`、窄屏 `min-height: 100dvh`、输入框 16px 防聚焦缩放
+
+## 已知限制
+
+- **审批必须有 `ask` 策略才会发生**。若 profile 的 preset 是 `danger-full-access`（`approval: never`），宿主在进入 waterfall 之前就确定性拒绝，插件收不到请求 —— 这不是插件故障。要测审批请把会话 preset 切到 `read-only` / `workspace-write`。
+- 手机端「始终允许」不能跨重启保留设备的 `always` 规则？—— 可以：规则落盘在 `~/.dsh/dsh-mobile-bridge/always.json`。
+- 桌面页也会连 SSE 并显示同一张卡（便于桌面上快速处理）；「手机是否在线」按**是否带设备令牌**判断，桌面在线不会被误判为手机在线。
+- 宿主重启后进程 token 变化：edge 在前端 401 时会重新走登录交换；设备令牌不变，无需重新扫码。
+
+## 目录
+
+```
+index.js               Host 入口（apply / 装配 / 生命周期）
+client.js              浏览器半身（审批卡 + EventSource）
+lib/edge.js            edge 网关（反代 / WS 透传 / 令牌闸门 / 限速 / 会话来源观察）
+lib/approval-bridge.js 审批桥接（本次需求的核心）
+lib/always.js          always 规则表与参数指纹
+lib/args-observer.js   tools/pre-execute 旁路，捕获 (callId → 参数)
+lib/session-origin.js  远程 / 本地会话标记
+lib/pairing.js         配对码与设备令牌
+lib/routes.js          配对页 / SSE / 决策 / 状态路由
+lib/index-inject.js    移动端 polyfill 与样式注入
+lib/tunnel.js          publicBase 探测（Tailscale / LAN）
+lib/store.js           0600 落盘
+```
+
+## 验证
+
+```sh
+# 模块级行为测试（once/always/reject/超时/离线分流）
+node <repo>/probe/approval-bridge.test.mjs
+```
+
+实测通过的链路（curl 模拟手机经 LAN 访问）：未配对 302 → 配对 303 → 首页 200（含注入）→ Remote RPC 200 返回真实会话列表 → `/api/remote.mux` 升级 **101** → SSE `hello` → 未知决策 409。
+
+## License
+
+MIT

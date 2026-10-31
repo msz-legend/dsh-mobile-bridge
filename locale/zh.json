@@ -1,0 +1,26 @@
+{
+  "meta": {
+    "title": "手机桥接",
+    "description": "把手机浏览器配对到本机 Desktop：共用现有 Web UI、流式回显、工具审批（仅本次 / 始终允许 / 拒绝）。"
+  },
+  "pair": {
+    "title": "配对手机",
+    "hint": "扫描二维码，或打开地址后输入配对码。",
+    "code": "配对码",
+    "url": "访问地址",
+    "expires": "剩余有效期",
+    "expired": "配对码已过期，刷新可获取新的。",
+    "submit": "配对"
+  },
+  "approval": {
+    "title": "工具审批",
+    "waiting": "等待你的决定",
+    "once": "仅本次",
+    "always": "始终允许",
+    "reject": "拒绝",
+    "timeout": "已超时 —— 默认拒绝",
+    "remember": "将记住：",
+    "riskHigh": "高风险",
+    "riskNormal": "需要确认"
+  }
+}
