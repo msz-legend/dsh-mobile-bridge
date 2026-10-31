@@ -18,17 +18,31 @@ function makeHarness(options = {}) {
   const config = {
     approvalTimeoutMs: options.timeoutMs ?? 5000,
     approvalTimeoutRemoteMs: options.timeoutMs ?? 5000,
+    offlineGraceMs: options.graceMs ?? 0,
     alwaysScope: options.scope ?? 'session',
   }
   const events = []
   let online = options.online ?? true
   let offlineHook = () => {}
+  let onlineWaiters = []
   const hub = {
     broadcast: (payload) => events.push(payload),
+    broadcastLoopback: (payload) => events.push(payload),
+    sendTo: () => {},
     hasOnlineDevice: () => online,
     onlineDeviceIds: () => new Set(online ? ['dev_test'] : []),
     onOffline: (hook) => {
       offlineHook = hook
+    },
+    onceDeviceOnline: (hook) => {
+      if (online) {
+        hook()
+        return () => {}
+      }
+      onlineWaiters.push(hook)
+      return () => {
+        onlineWaiters = onlineWaiters.filter((entry) => entry !== hook)
+      }
     },
   }
   const always = createAlways({ store, config, log })
@@ -41,6 +55,11 @@ function makeHarness(options = {}) {
     always,
     setOnline: (value) => {
       online = value
+      if (value) {
+        const waiters = onlineWaiters
+        onlineWaiters = []
+        for (const waiter of waiters) waiter()
+      }
     },
     goOffline: () => {
       online = false
@@ -166,6 +185,67 @@ await test('unrecognized args degrade to tool-only rule', async () => {
   await pending
   const rules = h.always.list()
   assert.equal(rules.at(-1).label.includes('仅工具名'), true)
+})
+
+// 10) 离线宽限：设备在宽限期内回来 → 卡片照常推送，远程会话也能正常放行
+await test('offline grace: device reconnects within grace → approval pushed and decidable', async () => {
+  const h = makeHarness({ online: false, graceMs: 300, remote: ['session-remote'] })
+  const pending = h.bridge.handler(req({ agent: { id: 'session-remote' } }), async () => 'allowed-once')
+  assert.equal(h.events.filter((event) => event.type === 'approval').length, 0, '宽限期内未推送卡片')
+  h.setOnline(true)
+  const request = approvalOf(h.events)
+  assert.ok(request, '设备重连后推送卡片')
+  h.bridge.decide({ requestId: request.requestId, decision: 'once', deviceId: 'dev_test' })
+  assert.equal(await pending, 'allowed-once', '远程会话在人回来后正常放行')
+})
+
+// 11) 离线宽限到期仍无设备：远程 fail closed，本地交还桌面（原语义不变）
+await test('offline grace expiry: remote fails closed, local delegates', async () => {
+  let nextCalled = false
+  const remote = makeHarness({ online: false, graceMs: 30, remote: ['session-remote'] })
+  const remoteOutcome = await remote.bridge.handler(req({ agent: { id: 'session-remote' } }), async () => {
+    nextCalled = true
+    return 'allowed-once'
+  })
+  assert.equal(remoteOutcome, 'unavailable')
+  assert.equal(nextCalled, false)
+
+  nextCalled = false
+  const local = makeHarness({ online: false, graceMs: 30 })
+  const localOutcome = await local.bridge.handler(req(), async () => {
+    nextCalled = true
+    return 'allowed-once'
+  })
+  assert.equal(localOutcome, 'allowed-once')
+  assert.equal(nextCalled, true)
+})
+
+// 12) 宽限期内宿主取消 → cancelled，不再等设备
+await test('abort during grace resolves cancelled immediately', async () => {
+  const controller = new AbortController()
+  const h = makeHarness({ online: false, graceMs: 5000 })
+  const pending = h.bridge.handler(req({ signal: controller.signal }), async () => 'next-value')
+  controller.abort()
+  assert.equal(await pending, 'cancelled')
+})
+
+// 13) SSE 重连回放：未决卡片原样补发，已决不发
+// （独立 session：共享 store 里测试 3 落过 session-x 的 always 规则，会短路掉本次推送）
+await test('replayRequests re-sends pending cards verbatim, skips settled ones', async () => {
+  const h = makeHarness({ observed: { args: { command: 'git status' }, tool: 'bash' } })
+  const pending = h.bridge.handler(req({ agent: { id: 'session-replay' } }), async () => 'next-value')
+  const request = approvalOf(h.events)
+  const replayed = []
+  h.bridge.replayRequests((payload) => replayed.push(payload))
+  assert.equal(replayed.length, 1)
+  assert.equal(replayed[0].type, 'approval')
+  assert.equal(replayed[0].request.requestId, request.requestId)
+  assert.equal(replayed[0].request.pattern.label, request.pattern.label, '原样回放')
+  h.bridge.decide({ requestId: request.requestId, decision: 'once' })
+  await pending
+  const after = []
+  h.bridge.replayRequests((payload) => after.push(payload))
+  assert.equal(after.length, 0, '已决审批不回放')
 })
 
 console.log(`\n${passed} checks passed`)

@@ -25,3 +25,7 @@
         # 需要填 tunnelToken 并显式写 publicBase（域名在 Cloudflare 后台配置）。
         tunnelMode: 'quick'
         tunnelToken: ''
+        # 手机离线时审批先等一拍（SSE 重连通常在数秒内），到期仍无人再按来源分流。
+        offlineGraceMs: 5000
+        # 手机/LAN 来源的配对需桌面确认；确认请求的有效期。
+        pairConfirmTtlMs: 120000

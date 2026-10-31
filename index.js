@@ -41,6 +41,8 @@ const DEFAULTS = {
   pairingMaxAttempts: 3,
   approvalTimeoutMs: 60_000,
   approvalTimeoutRemoteMs: 30_000,
+  offlineGraceMs: 5_000,
+  pairConfirmTtlMs: 2 * 60_000,
   alwaysScope: 'session',
   maxDevices: 5,
   enableLan: true,
@@ -67,6 +69,8 @@ function normalize(raw) {
   config.pairingMaxAttempts = asPositiveInt(input.pairingMaxAttempts, DEFAULTS.pairingMaxAttempts)
   config.approvalTimeoutMs = asPositiveInt(input.approvalTimeoutMs, DEFAULTS.approvalTimeoutMs)
   config.approvalTimeoutRemoteMs = asPositiveInt(input.approvalTimeoutRemoteMs, DEFAULTS.approvalTimeoutRemoteMs)
+  config.offlineGraceMs = asPositiveInt(input.offlineGraceMs, DEFAULTS.offlineGraceMs)
+  config.pairConfirmTtlMs = asPositiveInt(input.pairConfirmTtlMs, DEFAULTS.pairConfirmTtlMs)
   config.alwaysScope = input.alwaysScope === 'global' ? 'global' : 'session'
   config.maxDevices = asPositiveInt(input.maxDevices, DEFAULTS.maxDevices)
   config.enableLan = input.enableLan !== false

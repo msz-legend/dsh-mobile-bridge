@@ -66,6 +66,16 @@ DSH webServer 127.0.0.1:<随机端口>
 
 配对码限制：5 分钟 TTL、一次性、同码最多 3 次尝试即作废；配对接口按 IP 每分钟 20 次限速，超限熔断 10 分钟；默认最多 5 台设备。
 
+### 桌面确认（手机 / 局域网来源）
+
+从手机（或任何经 edge 的非本机来源）提交配对时，码验证通过后**不会立即发设备**，而是：
+
+1. 手机进入「等待桌面确认」页（自动轮询）；
+2. 桌面 DSH 窗口底部弹出**配对请求卡片**（设备名 + 来源），点「允许」或「拒绝」；
+3. 允许后手机自动拿到设备令牌并进入 Web UI；拒绝/超时（2 分钟）则手机端收到明确提示。
+
+桌面本机（loopback）直接提交配对码仍是即时生效（那是你在自己电脑前操作）。
+
 ### 撤销
 
 ```sh
@@ -151,6 +161,8 @@ curl http://127.0.0.1:<dshPort>/plugins/dsh-mobile-bridge/status
 | `pairingMaxAttempts` | `3` | 同一配对码允许的尝试次数 |
 | `approvalTimeoutMs` | `60000` | 本地会话审批超时 |
 | `approvalTimeoutRemoteMs` | `30000` | 远程会话审批超时 |
+| `offlineGraceMs` | `5000` | 无设备在线时的重连宽限：等手机 SSE 重连回来再决定，避免审批落在断线间隙被误杀 |
+| `pairConfirmTtlMs` | `120000` | 手机/LAN 来源配对的桌面确认有效期 |
 | `alwaysScope` | `'session'` | `always` 规则作用域：`session` / `global` |
 | `maxDevices` | `5` | 最大配对设备数 |
 | `storeDir` | `~/.dsh/dsh-mobile-bridge` | 设备表与 always 规则的落盘目录（0600） |
@@ -168,6 +180,8 @@ curl http://127.0.0.1:<dshPort>/plugins/dsh-mobile-bridge/status
 | 手机离线 + 远程会话 | `unavailable` | 不静默放行、不交还桌面 |
 | 手机离线 + 本地会话 | `next()` | 交还桌面原生审批卡 |
 
+离线判定有 **`offlineGraceMs`（默认 5s）宽限**：审批到达时若恰好没有设备在线（SSE 重连间隙、手机刚唤醒），先等一拍，设备回来就照常推卡；到期仍无人再按上表分流。SSE 重连后服务端会**回放全部未决审批卡**（按 requestId 幂等去重），断线窗口里错过的卡片不会丢。
+
 「始终允许」的参数指纹只从稳定字段提取：`command`（取命令前两段）、`path`（取目录）、`url`（取 host）、`query`。识别不了就退化为「仅工具名」，并在卡片上明确标注 —— 不让用户误判放行范围。
 
 **审批应答通道**：`approval/request` waterfall 的返回值本身（claim）或 `next()`（委托）。`approval/asked` / `approval/decided` 是 log-only 审计事件，本插件只读不用作答。
@@ -175,7 +189,7 @@ curl http://127.0.0.1:<dshPort>/plugins/dsh-mobile-bridge/status
 ## 安全红线
 
 - 通过 cookie / token 进来的浏览器 Peer 是 **`owner`**，而宿主 `ctx.remoteAccess` 的 RBAC 只约束**非 owner**。**因此隧道暴露 = owner 级 RCE**。
-- 防线依次是：edge 设备令牌闸门（未配对请求不转发给宿主）→ 配对码只在桌面端显示（公网上拿不到码，3 次尝试即作废）→ 配对接口按访客真实 IP 限速熔断。quick tunnel 的 trycloudflare 地址本身**不构成保密**（随机但公开可达），真正的边界是设备令牌。
+- 防线依次是：edge 设备令牌闸门（未配对请求不转发给宿主）→ 配对码只在桌面端显示（公网上拿不到码，3 次尝试即作废）→ **手机/局域网来源的配对还需桌面点击确认**（码证明"看到了桌面屏幕"，桌面确认证明"人在电脑前"）→ 配对接口按访客真实 IP 限速熔断。quick tunnel 的 trycloudflare 地址本身**不构成保密**（随机但公开可达），真正的边界是设备令牌。
 - 经 cloudflared 进来的流量源地址都是 127.0.0.1，edge 据此以 `cf-connecting-ip`（Cloudflare 边缘注入、客户端伪造会被剥掉）作为限速键，避免单攻击者熔断全体配对。
 - 明文 HTTP（LAN 档）下 cookie 在途不加密；cloudflared / Tailscale 形态下 TLS 在边缘终止，公网段全程加密，本机到 edge 仍是明文 HTTP（不出机器）。
 - edge 对所有响应附加 `nosniff` / `no-referrer` / `SAMEORIGIN`（含 `frame-ancestors 'self'`），只限制「别人嵌入」，不影响宿主自己的同源 iframe 预览；不设 permissions-policy，避免预关宿主 UI 的麦克风/剪贴板能力。

@@ -50,6 +50,12 @@ window.__ModuleLoader__.load({
       tunnel: ZH ? '公网隧道' : 'Tunnel',
       tunnelStarting: ZH ? '启动中…' : 'starting…',
       tunnelDown: ZH ? '未运行' : 'not running',
+      pairRequestTitle: ZH ? '配对请求' : 'Pairing request',
+      pairRequestBody: ZH ? '有一台设备通过配对码请求接入。' : 'A device is asking to pair with a valid code.',
+      pairFrom: ZH ? '来源' : 'from',
+      allow: ZH ? '允许' : 'Allow',
+      allowedText: ZH ? '已允许，等待手机进入…' : 'Allowed — waiting for the phone…',
+      deniedText: ZH ? '已拒绝。' : 'Denied.',
     }
 
     const CSS = `
@@ -110,6 +116,7 @@ window.__ModuleLoader__.load({
 
     function useApprovalFeed() {
       const [items, setItems] = react.useState([])
+      const [pairRequests, setPairRequests] = react.useState([])
       react.useEffect(() => {
         if (typeof EventSource === 'undefined') return undefined
         let source
@@ -138,6 +145,15 @@ window.__ModuleLoader__.load({
               )
             } else if (message.type === 'approval-resolved') {
               setItems((previous) => previous.filter((entry) => entry.requestId !== message.requestId))
+            } else if (message.type === 'pair-request' && message.confirmId) {
+              // broadcastLoopback 只发桌面；手机不会收到配对请求卡片
+              setPairRequests((previous) =>
+                previous.some((entry) => entry.confirmId === message.confirmId)
+                  ? previous
+                  : [...previous, message],
+              )
+            } else if (message.type === 'pair-request-resolved') {
+              setPairRequests((previous) => previous.filter((entry) => entry.confirmId !== message.confirmId))
             }
           }
           source.onerror = () => {
@@ -161,7 +177,7 @@ window.__ModuleLoader__.load({
           }
         }
       }, [])
-      return [items, setItems]
+      return [items, setItems, pairRequests]
     }
 
     function useCountdown(expiresAt) {
@@ -242,18 +258,80 @@ window.__ModuleLoader__.load({
       )
     }
 
-    function ApprovalOverlay() {
-      ensureStyle()
-      const [items, setItems] = useApprovalFeed()
-      if (items.length === 0) return null
-      const request = items[0]
+    /** 桌面确认卡：非 loopback 来源的手机配对需要人在电脑前点允许（/devices/confirm 仅 loopback 可达）。 */
+    function PairCard(props) {
+      const { request } = props
+      const [busy, setBusy] = react.useState(false)
+      const [note, setNote] = react.useState(undefined)
 
-      const onDecide = (requestId, decision) => {
-        setItems((previous) => previous.filter((entry) => entry.requestId !== requestId))
-        return postDecision(requestId, decision).catch(() => undefined)
+      const resolve = (decision) => {
+        if (busy) return
+        setBusy(true)
+        fetch(BASE + '/devices/confirm', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ confirmId: request.confirmId, decision }),
+        })
+          .then((response) => response.json().catch(() => ({})))
+          .then((json) => {
+            if (decision === 'allow') setNote(json?.ok === true ? T.allowedText : `${T.pairRequestTitle}: limit`)
+            else setNote(T.deniedText)
+          })
+          .catch(() => setBusy(false))
       }
 
-      return h(Card, { request, onDecide })
+      return h(
+        'div',
+        { className: 'dmb-overlay' },
+        h(
+          'div',
+          { className: 'dmb-card', role: 'dialog', 'aria-label': T.pairRequestTitle },
+          h(
+            'div',
+            { className: 'dmb-head' },
+            h('span', { className: 'dmb-dot' }),
+            T.pairRequestTitle,
+          ),
+          h(
+            'div',
+            { className: 'dmb-body' },
+            h('div', { className: 'dmb-tool' }, request.name || 'phone'),
+            h('div', { className: 'dmb-sum' }, `${T.pairRequestBody}\n${T.pairFrom}: ${request.source || '—'}`),
+            note ? h('div', { className: 'dmb-pattern' }, note) : null,
+          ),
+          h(
+            'div',
+            { className: 'dmb-foot' },
+            h('span', { className: 'dmb-timer' }),
+            h(
+              'button',
+              { className: 'dmb-btn danger', disabled: busy, onClick: () => resolve('deny'), type: 'button' },
+              T.reject,
+            ),
+            h(
+              'button',
+              { className: 'dmb-btn primary', disabled: busy, onClick: () => resolve('allow'), type: 'button' },
+              T.allow,
+            ),
+          ),
+        ),
+      )
+    }
+
+    function ApprovalOverlay() {
+      ensureStyle()
+      const [items, setItems, pairRequests] = useApprovalFeed()
+      if (items.length > 0) {
+        const request = items[0]
+        const onDecide = (requestId, decision) => {
+          setItems((previous) => previous.filter((entry) => entry.requestId !== requestId))
+          return postDecision(requestId, decision).catch(() => undefined)
+        }
+        return h(Card, { request, onDecide })
+      }
+      if (pairRequests.length > 0) return h(PairCard, { request: pairRequests[0] })
+      return null
     }
 
     function sendHello(note) {
