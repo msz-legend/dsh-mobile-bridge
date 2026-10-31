@@ -21,6 +21,7 @@ import { createAlways } from './lib/always.js'
 import { createPairing } from './lib/pairing.js'
 import { createApprovalBridge } from './lib/approval-bridge.js'
 import { createEdge } from './lib/edge.js'
+import { createCloudflared } from './lib/cloudflared.js'
 import { registerRoutes, DEVICE_COOKIE } from './lib/routes.js'
 import { resolvePublicBase } from './lib/tunnel.js'
 import { installIndexInjection } from './lib/index-inject.js'
@@ -43,6 +44,10 @@ const DEFAULTS = {
   alwaysScope: 'session',
   maxDevices: 5,
   enableLan: true,
+  tunnelEnabled: false,
+  tunnelMode: 'quick',
+  tunnelToken: '',
+  tunnelBin: 'cloudflared',
 }
 
 const asPositiveInt = (value, fallback) => {
@@ -65,6 +70,10 @@ function normalize(raw) {
   config.alwaysScope = input.alwaysScope === 'global' ? 'global' : 'session'
   config.maxDevices = asPositiveInt(input.maxDevices, DEFAULTS.maxDevices)
   config.enableLan = input.enableLan !== false
+  config.tunnelEnabled = input.tunnelEnabled === true
+  config.tunnelMode = input.tunnelMode === 'token' ? 'token' : 'quick'
+  config.tunnelToken = typeof input.tunnelToken === 'string' ? input.tunnelToken.trim() : ''
+  config.tunnelBin = typeof input.tunnelBin === 'string' && input.tunnelBin.trim() !== '' ? input.tunnelBin.trim() : DEFAULTS.tunnelBin
   config.dshPort = 0
   return config
 }
@@ -102,12 +111,25 @@ export function apply(ctx, raw) {
   if (typeof heartbeat.unref === 'function') heartbeat.unref()
 
   let publicBaseCache
+  let tunnel
   const getPublicBase = async () => {
     if (typeof publicBaseCache === 'string') return publicBaseCache
-    publicBaseCache = await resolvePublicBase(config, config.edgePort, edge?.bindings?.() ?? [], log)
+    publicBaseCache = await resolvePublicBase(config, config.edgePort, edge?.bindings?.() ?? [], log, tunnel?.url?.())
     log(`publicBase = ${publicBaseCache}`)
     return publicBaseCache
   }
+
+  // cloudflared 隧道：quick 模式拿到 URL 后立即刷新 publicBase（配对二维码跟着变）。
+  tunnel = createCloudflared({
+    config,
+    targetPort: config.edgePort,
+    log,
+    onUrl: (url) => {
+      publicBaseCache = undefined
+      log(`publicBase switched to tunnel: ${url}`)
+      void getPublicBase()
+    },
+  })
 
   let edge
   let routes
@@ -136,6 +158,7 @@ export function apply(ctx, raw) {
         getPublicBase,
         getLaunchUrl,
         clientHello,
+        tunnel,
         getEdgeStatus: () => ({
           listening: edge?.isListening?.() === true,
           host: config.edgeHost,
@@ -153,6 +176,9 @@ export function apply(ctx, raw) {
         }
         log(`edge bindings: ${result.bindings.join(', ')}`)
         void getPublicBase()
+        if (config.tunnelEnabled) {
+          void tunnel.start()
+        }
       })
 
       const disposeInject = installIndexInjection(scoped.webServer, log)
@@ -175,8 +201,13 @@ export function apply(ctx, raw) {
           } catch {
             /* ignore */
           }
+          try {
+            tunnel?.stop?.()
+          } catch {
+            /* ignore */
+          }
         },
-        'dsh-mobile-bridge: routes + edge + index injection',
+        'dsh-mobile-bridge: routes + edge + tunnel + index injection',
       )
     } catch (error) {
       log('activation failed:', error?.message ?? error, error?.stack ?? '')

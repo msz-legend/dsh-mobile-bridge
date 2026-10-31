@@ -47,6 +47,9 @@ window.__ModuleLoader__.load({
       desktopOnly: ZH ? '仅在桌面端（本机）可生成配对码。' : 'Pairing codes can only be created on the desktop.',
       clientLoaded: ZH ? '手机端已加载' : 'Client half loaded',
       refresh: ZH ? '刷新' : 'Refresh',
+      tunnel: ZH ? '公网隧道' : 'Tunnel',
+      tunnelStarting: ZH ? '启动中…' : 'starting…',
+      tunnelDown: ZH ? '未运行' : 'not running',
     }
 
     const CSS = `
@@ -320,6 +323,15 @@ window.__ModuleLoader__.load({
         { className: 'dmb-settings' },
         h('div', { className: 'dmb-muted' }, T.address),
         h('div', { className: 'dmb-addr' }, data?.publicBase ?? '—'),
+        data?.tunnel?.enabled === true
+          ? h(
+              'div',
+              { className: 'dmb-muted' },
+              `${T.tunnel} · ${
+                data.tunnel.running === true ? data.tunnel.url || T.tunnelStarting : T.tunnelDown
+              }`,
+            )
+          : null,
         h(
           'div',
           { className: 'dmb-grid' },

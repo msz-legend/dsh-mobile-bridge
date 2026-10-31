@@ -17,9 +17,11 @@ DSH Desktop 的 Web 载体只监听 `127.0.0.1`（启动参数硬编码 `--host 
 
 ```
 手机浏览器
-   │  https://<tailnet>/  （Tailscale serve 终止 TLS）
+   │  https://<random>.trycloudflare.com  （公网档：cloudflared 隧道，CF 边缘终止 TLS）
+   │  https://<tailnet>/                  （隐私档：Tailscale serve 终止 TLS）
+   │  http://<LAN IP>:8787                （本地档：局域网直连）
    ▼
-edge (127.0.0.1:8787 / LAN IP:8787)      ← 设备令牌闸门 + 限速 + 反代
+edge (127.0.0.1:8787 / LAN IP:8787)      ← 设备令牌闸门 + 限速 + 安全头 + 反代
    │  改写 Host/Origin → 127.0.0.1:<dshPort>
    ▼
 DSH webServer 127.0.0.1:<随机端口>
@@ -76,9 +78,40 @@ curl -X POST -H 'content-type: application/json' \
   http://127.0.0.1:<dshPort>/plugins/dsh-mobile-bridge/devices/revoke
 ```
 
-## 外网接入（Tailscale）
+## 外网接入
 
-推荐 **`tailscale serve`（仅 tailnet 可见）**，不要用 Funnel。原因见下方安全红线。
+三个档位，按需选：**cloudflared（公网默认）**、Tailscale（隐私优先）、LAN 直连（本地）。
+
+### cloudflared（公网档，推荐）
+
+手机不在局域网时的默认通道：零账号、免费、自动 TLS、出站连接穿一切 NAT。TLS 在 Cloudflare 边缘终止，语音输入 / 剪贴板 / PWA 安装等 HTTPS-only 能力随之解锁。
+
+```sh
+# 1) 安装 cloudflared
+winget install Cloudflare.cloudflared
+
+# 2) 在 cordis.patch.yml 里打开开关
+#    tunnelEnabled: true
+# 3) 重启 DSH Desktop，quick tunnel 自动启动
+```
+
+quick 模式（`tunnelMode: 'quick'`，默认）：插件自动起 `cloudflared tunnel --url http://127.0.0.1:8787`，从输出解析 `https://<random>.trycloudflare.com` 并把它作为 `publicBase` —— 设置页、配对页、二维码里的地址都会自动切过去。地址每次重启会变，适合自用。
+
+> 实测注意：新隧道域名解析到公网 DNS 需要 **约 5–10 秒**（此前扫码若立刻报 DNS 错误，等几秒重开即可）；cloudflared 首次起进程偶发退出（code=1），插件会自动重启并解析新地址，日志里有 stderr 尾巴可查因。
+
+token 模式（`tunnelMode: 'token'`）：固定域名用这个。在 Cloudflare 后台建 tunnel、把域名指到 `http://127.0.0.1:8787`，然后把 token 填进 `tunnelToken`、把域名写进 `publicBase`。
+
+隧道进程意外退出会自动重启（指数退避，封顶 30s）；插件卸载时随之停止。
+
+不动 DSH 也能单独验证通道：
+
+```sh
+node test/smoke-tunnel.mjs   # 本地起服务 + 真 quick tunnel + 公网回环验证，打印 PASS/FAIL
+```
+
+### Tailscale（隐私档）
+
+只有自己的设备要访问、且不想经过任何第三方时用 **`tailscale serve`（仅 tailnet 可见）**，不要用 Funnel。
 
 ```sh
 # 1) 本机与手机安装 Tailscale 并登录同一账号
@@ -97,6 +130,10 @@ curl http://127.0.0.1:<dshPort>/plugins/dsh-mobile-bridge/status
     publicBase: 'https://<machine>.<tailnet>.ts.net'
 ```
 
+### publicBase 优先级
+
+显式 `publicBase` → cloudflared quick tunnel 地址 → Tailscale DNS 名 → LAN 地址 → loopback。
+
 ## 配置项
 
 | 键 | 默认 | 说明 |
@@ -105,7 +142,11 @@ curl http://127.0.0.1:<dshPort>/plugins/dsh-mobile-bridge/status
 | `edgeHost` | `'127.0.0.1'` | edge 监听地址；写 `'auto'` 则自动选 LAN IP + loopback |
 | `edgePort` | `8787` | edge 端口 |
 | `enableLan` | `true` | 除 loopback 外，是否额外绑定本机 LAN IP（手机局域网直连） |
-| `publicBase` | `''` | 对外地址；留空 = 自动探测（Tailscale → LAN → loopback） |
+| `publicBase` | `''` | 对外地址；留空 = 自动探测（cloudflared → Tailscale → LAN → loopback） |
+| `tunnelEnabled` | `false` | 是否启动 cloudflared 隧道（公网档通道） |
+| `tunnelMode` | `'quick'` | `quick` = 零账号临时隧道（地址每次重启变化）；`token` = 命名隧道 |
+| `tunnelToken` | `''` | `token` 模式的隧道凭据（`cloudflared tunnel run --token`，别写进公开仓库） |
+| `tunnelBin` | `'cloudflared'` | cloudflared 可执行文件路径（不在 PATH 时写绝对路径） |
 | `pairingTtlMs` | `300000` | 配对码有效期 |
 | `pairingMaxAttempts` | `3` | 同一配对码允许的尝试次数 |
 | `approvalTimeoutMs` | `60000` | 本地会话审批超时 |
@@ -134,8 +175,11 @@ curl http://127.0.0.1:<dshPort>/plugins/dsh-mobile-bridge/status
 ## 安全红线
 
 - 通过 cookie / token 进来的浏览器 Peer 是 **`owner`**，而宿主 `ctx.remoteAccess` 的 RBAC 只约束**非 owner**。**因此隧道暴露 = owner 级 RCE**。
-- 所以：只用 `tailscale serve`（tailnet 内可见），**不要开 Funnel**；edge 强制设备令牌，未配对请求不转发给宿主；设备数与配对尝试都有限制。
-- 明文 HTTP 下 cookie 在途不加密；Tailscale 形态下 TLS 由 Tailscale 终止，本机仍是明文 HTTP（cookie 不带 `Secure`，浏览器经 https 仍会发送）。
+- 防线依次是：edge 设备令牌闸门（未配对请求不转发给宿主）→ 配对码只在桌面端显示（公网上拿不到码，3 次尝试即作废）→ 配对接口按访客真实 IP 限速熔断。quick tunnel 的 trycloudflare 地址本身**不构成保密**（随机但公开可达），真正的边界是设备令牌。
+- 经 cloudflared 进来的流量源地址都是 127.0.0.1，edge 据此以 `cf-connecting-ip`（Cloudflare 边缘注入、客户端伪造会被剥掉）作为限速键，避免单攻击者熔断全体配对。
+- 明文 HTTP（LAN 档）下 cookie 在途不加密；cloudflared / Tailscale 形态下 TLS 在边缘终止，公网段全程加密，本机到 edge 仍是明文 HTTP（不出机器）。
+- edge 对所有响应附加 `nosniff` / `no-referrer` / `SAMEORIGIN`（含 `frame-ancestors 'self'`），只限制「别人嵌入」，不影响宿主自己的同源 iframe 预览；不设 permissions-policy，避免预关宿主 UI 的麦克风/剪贴板能力。
+- token 凭据经命令行参数传给 cloudflared，本机进程列表可见 —— 自用可接受，介意的话等宿主支持凭据文件或改用 quick 模式。
 
 ## 移动端适配
 
@@ -165,15 +209,16 @@ lib/session-origin.js  远程 / 本地会话标记
 lib/pairing.js         配对码与设备令牌
 lib/routes.js          配对页 / SSE / 决策 / 状态路由
 lib/index-inject.js    移动端 polyfill 与样式注入
-lib/tunnel.js          publicBase 探测（Tailscale / LAN）
+lib/cloudflared.js     cloudflared 隧道管理（quick/token、自动重启、URL 解析）
+lib/tunnel.js          publicBase 探测（cloudflared / Tailscale / LAN）
 lib/store.js           0600 落盘
 ```
 
 ## 验证
 
 ```sh
-# 模块级行为测试（once/always/reject/超时/离线分流）
-node <repo>/probe/approval-bridge.test.mjs
+# 模块级行为测试（once/always/reject/超时/离线分流 + 隧道 URL 解析/容错）
+npm test
 ```
 
 实测通过的链路（curl 模拟手机经 LAN 访问）：未配对 302 → 配对 303 → 首页 200（含注入）→ Remote RPC 200 返回真实会话列表 → `/api/remote.mux` 升级 **101** → SSE `hello` → 未知决策 409。

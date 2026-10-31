@@ -1,6 +1,6 @@
 {
   "name": "dsh-mobile-bridge",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "用手机浏览器安全接入 DSH Desktop：扫码配对、流式回显、工具审批（once / always / reject）。",
@@ -24,8 +24,8 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node test/approval-bridge.test.mjs",
-    "check": "node --check index.js && node --check client.js"
+    "test": "node test/approval-bridge.test.mjs && node test/cloudflared.test.mjs",
+    "check": "node --check index.js && node --check client.js && node --check lib/cloudflared.js"
   },
   "keywords": [
     "dsh",
@@ -35,6 +35,7 @@
     "remote",
     "qrcode",
     "approval",
+    "cloudflared",
     "tailscale"
   ],
   "author": "msz-legend",
