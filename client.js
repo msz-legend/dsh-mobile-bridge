@@ -35,6 +35,18 @@ window.__ModuleLoader__.load({
       normal: ZH ? '需要确认' : 'Needs confirmation',
       argsUnknown: ZH ? '（参数不可得，仅按工具名记忆）' : '(args unavailable; remembers tool only)',
       seconds: ZH ? '秒' : 's',
+      settingsTitle: ZH ? '手机桥接' : 'Mobile Bridge',
+      paired: ZH ? '已配对设备' : 'Paired devices',
+      online: ZH ? '在线' : 'online',
+      pending: ZH ? '待审批' : 'Pending approvals',
+      rules: ZH ? 'always 规则' : 'Always rules',
+      timeout: ZH ? '审批超时' : 'Approval timeout',
+      address: ZH ? '访问地址' : 'Access URL',
+      pairCode: ZH ? '生成配对码' : 'New pairing code',
+      pairHint: ZH ? '用手机扫描二维码，或打开地址后输入配对码。' : 'Scan the QR code, or open the URL and enter the code.',
+      desktopOnly: ZH ? '仅在桌面端（本机）可生成配对码。' : 'Pairing codes can only be created on the desktop.',
+      clientLoaded: ZH ? '手机端已加载' : 'Client half loaded',
+      refresh: ZH ? '刷新' : 'Refresh',
     }
 
     const CSS = `
@@ -61,7 +73,14 @@ window.__ModuleLoader__.load({
 .dmb-btn.primary{background:#2563eb;border-color:#2563eb;color:#fff}
 .dmb-btn.danger{color:#b91c1c;border-color:#fca5a5}
 .dmb-btn[disabled]{opacity:.5;cursor:default}
-@media (max-width:480px){.dmb-foot{gap:6px}.dmb-btn{flex:1 1 auto;padding:9px 10px}}
+.dmb-settings{padding:16px;font:13px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;max-width:640px}
+.dmb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:12px 0}
+.dmb-cell{border:1px solid rgba(127,127,127,.25);border-radius:12px;padding:10px 12px;background:rgba(127,127,127,.05)}
+.dmb-cell b{display:block;font-size:19px;line-height:1.2;margin-top:2px}
+.dmb-muted{color:var(--dsw-alias-label-tertiary,#666);font-size:12px}
+.dmb-addr{word-break:break-all;font:12px/1.5 ui-monospace,Consolas,monospace;background:rgba(127,127,127,.08);padding:8px 10px;border-radius:8px;margin:8px 0}
+.dmb-qr{display:block;width:100%;max-width:220px;margin:10px auto;border-radius:10px;background:#fff;padding:6px}
+.dmb-settings .dmb-btn{margin-top:8px}
 `
 
     function ensureStyle() {
@@ -247,6 +266,96 @@ window.__ModuleLoader__.load({
       }
     }
 
+    function useOverview() {
+      const [data, setData] = react.useState(undefined)
+      react.useEffect(() => {
+        let alive = true
+        const load = () => {
+          fetch(BASE + '/overview', { credentials: 'same-origin' })
+            .then((response) => (response.ok ? response.json() : undefined))
+            .then((json) => {
+              if (alive && json) setData(json)
+            })
+            .catch(() => undefined)
+        }
+        load()
+        const timer = setInterval(load, 5000)
+        return () => {
+          alive = false
+          clearInterval(timer)
+        }
+      }, [])
+      return data
+    }
+
+    function Cell(props) {
+      return h('div', { className: 'dmb-cell' }, props.label, h('b', null, props.value))
+    }
+
+    /** 插件详情里的设置页：回答「手机桥接现在是什么状态、怎么再配一台」。 */
+    function SettingsPanel() {
+      ensureStyle()
+      const data = useOverview()
+      const [pairing, setPairing] = react.useState(undefined)
+      const [busy, setBusy] = react.useState(false)
+
+      const requestCode = () => {
+        if (busy) return
+        setBusy(true)
+        fetch(BASE + '/pairing.json', { credentials: 'same-origin' })
+          .then((response) => response.json())
+          .then((json) => setPairing(json))
+          .catch(() => undefined)
+          .finally(() => setBusy(false))
+      }
+
+      const desktop = data?.loopback === true
+      const timeoutText =
+        data?.timeout === undefined
+          ? '—'
+          : `${Math.round(data.timeout.local / 1000)}s / ${Math.round(data.timeout.remote / 1000)}s`
+
+      return h(
+        'div',
+        { className: 'dmb-settings' },
+        h('div', { className: 'dmb-muted' }, T.address),
+        h('div', { className: 'dmb-addr' }, data?.publicBase ?? '—'),
+        h(
+          'div',
+          { className: 'dmb-grid' },
+          h(Cell, { label: T.paired, value: data === undefined ? '—' : `${data.devices.total}/${data.maxDevices}` }),
+          h(Cell, { label: T.online, value: data === undefined ? '—' : String(data.devices.online) }),
+          h(Cell, { label: T.pending, value: data === undefined ? '—' : String(data.pendingApprovals) }),
+          h(Cell, { label: T.rules, value: data === undefined ? '—' : String(data.alwaysRules) }),
+          h(Cell, { label: T.timeout, value: timeoutText }),
+          h(Cell, { label: T.clientLoaded, value: data === undefined ? '—' : String(data.clientHalf) }),
+        ),
+        desktop
+          ? h(
+              'div',
+              null,
+              h(
+                'button',
+                { type: 'button', className: 'dmb-btn primary', onClick: requestCode, disabled: busy },
+                T.pairCode,
+              ),
+              pairing?.code
+                ? h(
+                    'div',
+                    null,
+                    h('div', { className: 'dmb-muted' }, T.pairHint),
+                    pairing.qrDataUrl
+                      ? h('img', { className: 'dmb-qr', src: pairing.qrDataUrl, alt: T.pairCode })
+                      : null,
+                    h('div', { className: 'dmb-addr' }, `${pairing.publicBase ?? ''}`),
+                    h('div', { className: 'dmb-addr' }, pairing.code),
+                  )
+                : null,
+            )
+          : h('div', { className: 'dmb-muted' }, T.desktopOnly),
+      )
+    }
+
     function apply(ctx) {
       if (typeof document === 'undefined') return
       // 先回执再注册：这样即使 slot 注册失败，宿主也能观测到「半身确实执行到了哪一步」。
@@ -255,22 +364,19 @@ window.__ModuleLoader__.load({
         sendHello('no-slots-service')
         return
       }
-      try {
-        slots.inject('shell.overlay', () =>
-          slots.register(
-            {
-              name: 'shell.overlay',
-              id: 'dsh-mobile-bridge-approval',
-              order: 900,
-              label: () => T.title,
-            },
-            ApprovalOverlay,
-          ),
-        )
-        sendHello('registered')
-      } catch (error) {
-        sendHello(`register-failed:${String(error?.message ?? error).slice(0, 120)}`)
+      const registrations = [
+        ['shell.overlay', { name: 'shell.overlay', id: 'dsh-mobile-bridge-approval', order: 900, label: () => T.title }, ApprovalOverlay],
+        ['settings.section', { name: 'settings.section', id: 'dsh-mobile-bridge', order: 120, label: () => T.settingsTitle }, SettingsPanel],
+      ]
+      const failed = []
+      for (const [slotName, options, Component] of registrations) {
+        try {
+          slots.inject(slotName, () => slots.register(options, Component))
+        } catch (error) {
+          failed.push(`${slotName}:${String(error?.message ?? error).slice(0, 60)}`)
+        }
       }
+      sendHello(failed.length === 0 ? 'registered' : `partial:${failed.join(';')}`)
     }
 
     exports.apply = apply
