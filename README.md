@@ -202,6 +202,17 @@ curl http://127.0.0.1:<dshPort>/plugins/dsh-mobile-bridge/status
 - `<meta name="viewport" ... viewport-fit=cover>`
 - `AbortSignal.any` / `AbortSignal.timeout` polyfill（旧 iOS/Chrome 缺失会让页面直接崩）
 - 安全区 `env(safe-area-inset-bottom)`、窄屏 `min-height: 100dvh`、输入框 16px 防聚焦缩放
+- **PWA 标签**：manifest / apple-touch-icon / theme-color（图标与 manifest 由插件路由同源分发）
+- **触屏常显**：`@media (hover:none)` 下把宿主藏在 `:hover` 后的控件常显（代码复制按钮、标签关闭钮；用 CSS-module 前缀 `[class*="_copySlot_"]` 匹配，宿主改名时规则自然失效）
+
+### 安装到主屏（PWA）
+
+公网/HTTPS 档（cloudflared 或 Tailscale）下：
+
+- **Android Chrome**：菜单 → 「添加到主屏幕」→ 全屏独立窗口运行
+- **iOS Safari**：分享 → 「添加到主屏幕」
+
+> 不做离线缓存（Service Worker 无法挂在根路径——`/` 归宿主管），可安装 + 全屏已覆盖主屏使用体验。
 
 ## 已知限制
 
@@ -246,6 +257,19 @@ npm test
 
 > 安全边界：`/pairing.json`、`/status`、`/devices/revoke*`、`/rules/revoke` 只允许**真正来自本机**的请求。edge 以 loopback 回源，因此仅凭 socket 源地址无法区分"手机"与"桌面"——这些接口额外要求请求**不带** `x-dmb-forwarded-for`（该头由 edge 强制写入，客户端无法伪造）。已验证：经 edge 的手机身份访问上述接口返回 403，桌面直连返回 200。
 
+## 右侧栏移动化：实测结论 —— 原生已支持，无需重建
+
+原方案（阶段④）假设「窄屏下右侧栏不可用，需要插件自建全屏移动面板复用 Remote API」。**真机走查（412×915 触屏视口）推翻了该假设**：
+
+- 宿主右栏在窗口 <768px 时**自动全屏**，会话 header 的「打开右侧边栏」按钮触屏可达
+- **工作区文件**：目录树渲染正常，工具栏（自动刷新/重新读取）可用
+- **文件预览**：点开文本文件，内容等宽渲染，多 tab 并存、可关闭
+- **终端**：xterm 渲染，cmd.exe 启动，`echo` 命令经软键盘输入正常回显（PTY 全链路穿透 edge）
+- **浏览器**：tab 打开、URL 输入框正常
+- 触屏唯一盲点是「hover 才显示」的控件（复制/关标签），已由本插件的触屏常显规则修复
+
+结论：右侧栏是宿主的能力，插件**零代码**复用；走查脚本在 `probe/rightbar*.mjs`（Playwright，412×915 触屏视口，配对 → 进会话 → 开右栏 → 逐 tab 截图）。
+
 ## 移动端功能对齐
 
 同一套 Web UI 在窄屏下会收起侧栏为图标轨、把部分控件压成图标按钮，但**功能不减**。实测（412×915 视口 + Android 真机）与桌面逐项一致：
@@ -260,6 +284,13 @@ npm test
 | 模型选择 + 推理等级 | ✅ | ✅ | 手机为图标按钮，点开有完整菜单 |
 | 审批权限档 | ✅ | ✅ | 同上，点开有 4 档 |
 | 手机桥接设置页 | ✅ | ✅ | 手机只读 |
+| 右侧栏（文件/预览/终端/浏览器） | ✅ | ✅ | <768px 自动全屏，真机实测见上节 |
+| 代码复制 / 标签关闭 | ✅ | ✅ | 触屏常显规则修复（原 hover-only） |
+| PWA 安装（主屏全屏） | — | ✅ | HTTPS 档下 Chrome/Safari 添加到主屏幕 |
+
+### 审批卡唯一性
+
+一次审批在任何屏幕上**只出现一张卡**，由 waterfall 语义保证：设备在线时插件以 `prepend` 先答，桌面原生审批 UI 不会介入（只有我们的卡片）；宽限到期且无设备时本地会话走 `next()` 交给桌面原生卡（我们的卡片从未广播）；远程会话则 fail closed。桌面页与手机会看到同一张 DMB 卡（设计如此，便于在电脑前快速处理）。
 
 ## 故障排查
 
