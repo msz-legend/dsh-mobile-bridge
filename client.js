@@ -65,6 +65,8 @@ window.__ModuleLoader__.load({
       allow: ZH ? '允许' : 'Allow',
       allowedText: ZH ? '已允许，等待手机进入…' : 'Allowed — waiting for the phone…',
       deniedText: ZH ? '已拒绝。' : 'Denied.',
+      close: ZH ? '关闭' : 'Close',
+      openFullscreen: ZH ? '全屏查看' : 'Full screen',
     }
 
     const CSS = `
@@ -91,14 +93,30 @@ window.__ModuleLoader__.load({
 .dmb-btn.primary{background:#2563eb;border-color:#2563eb;color:#fff}
 .dmb-btn.danger{color:#b91c1c;border-color:#fca5a5}
 .dmb-btn[disabled]{opacity:.5;cursor:default}
-.dmb-settings{padding:16px;font:13px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;max-width:640px}
-.dmb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:12px 0}
-.dmb-cell{border:1px solid rgba(127,127,127,.25);border-radius:12px;padding:10px 12px;background:rgba(127,127,127,.05)}
-.dmb-cell b{display:block;font-size:19px;line-height:1.2;margin-top:2px}
-.dmb-muted{color:var(--dsw-alias-label-tertiary,#666);font-size:12px}
-.dmb-addr{word-break:break-all;font:12px/1.5 ui-monospace,Consolas,monospace;background:rgba(127,127,127,.08);padding:8px 10px;border-radius:8px;margin:8px 0}
-.dmb-qr{display:block;width:100%;max-width:220px;margin:10px auto;border-radius:10px;background:#fff;padding:6px}
-.dmb-settings .dmb-btn{margin-top:8px}
+.dmb-settings{padding:16px;font:13px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;width:100%;max-width:100%;box-sizing:border-box;overflow-wrap:anywhere;overflow:auto;max-height:100%;-webkit-overflow-scrolling:touch}
+.dmb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,120px),1fr));gap:10px;margin:12px 0}
+.dmb-cell{border:1px solid rgba(127,127,127,.25);border-radius:12px;padding:10px 12px;background:rgba(127,127,127,.05);min-width:0;overflow-wrap:anywhere}
+.dmb-cell b{display:block;font-size:19px;line-height:1.2;margin-top:2px;word-break:break-word}
+.dmb-muted{color:var(--dsw-alias-label-tertiary,#666);font-size:12px;overflow-wrap:anywhere}
+.dmb-addr{word-break:break-all;overflow-wrap:anywhere;font:12px/1.5 ui-monospace,Consolas,monospace;background:rgba(127,127,127,.08);padding:8px 10px;border-radius:8px;margin:8px 0;max-width:100%;box-sizing:border-box}
+.dmb-qr{display:block;width:100%;max-width:220px;margin:10px auto;border-radius:10px;background:#fff;padding:6px;box-sizing:border-box}
+.dmb-settings .dmb-btn{margin-top:8px;width:100%;max-width:100%;box-sizing:border-box}
+/* 窄屏全屏接管：宿主设置抽屉在 360dp 下把内容区压到 ~124px，插件入口改为 fixed 全屏层。
+   只在「用户主动点悬浮按钮展开」时出现，默认不遮挡宿主设置页。 */
+.dmb-fab{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:2147482000;
+  display:flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:10px 16px;
+  background:#2563eb;color:#fff;font:600 13px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;
+  box-shadow:0 8px 24px rgba(37,99,235,.42);cursor:pointer;max-width:calc(100vw - 28px)}
+.dmb-sheet{position:fixed;inset:0;z-index:2147482100;background:var(--dsw-specific-input-major,#fff);
+  color:var(--dsw-alias-label-primary,#111);display:flex;flex-direction:column;
+  font:13px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
+.dmb-sheet-head{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+  border-bottom:1px solid rgba(127,127,127,.22)}
+.dmb-sheet-title{font-weight:600;font-size:15px;margin-right:auto}
+.dmb-sheet-close{border:1px solid rgba(127,127,127,.35);background:transparent;color:inherit;border-radius:10px;
+  min-width:40px;min-height:40px;padding:0 12px;font-size:13px;font-weight:600;cursor:pointer}
+.dmb-sheet-body{flex:1 1 auto;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.dmb-sheet-body .dmb-settings{max-width:720px;margin:0 auto}
 `
 
     function ensureStyle() {
@@ -458,6 +476,82 @@ window.__ModuleLoader__.load({
       )
     }
 
+    /**
+     * 窄屏全屏接管入口。
+     *
+     * 宿主设置抽屉（.AnXs9G_panel）在 360dp 手机视口下只给内容区约 124px，
+     * 插件面板再怎么自适应也读不清（实测 rect 宽 76px）。这里在设置页内挂一个
+     * 悬浮按钮，点开把同一份 SettingsPanel 以 fixed 全屏 sheet 渲染到 body，
+     * 彻底绕开宿主容器宽度限制；宿主抽屉本身不受影响，关掉 sheet 就回到原状。
+     */
+    function SettingsLauncher() {
+      ensureStyle()
+      const [open, setOpen] = react.useState(false)
+
+      react.useEffect(() => {
+        if (!open || typeof document === 'undefined') return undefined
+        const onKey = (event) => {
+          if (event.key === 'Escape') setOpen(false)
+        }
+        document.addEventListener('keydown', onKey)
+        const previous = document.body.style.overflow
+        document.body.style.overflow = 'hidden'
+        return () => {
+          document.removeEventListener('keydown', onKey)
+          document.body.style.overflow = previous
+        }
+      }, [open])
+
+      const sheet = open
+        ? h(
+            'div',
+            { className: 'dmb-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': T.settingsTitle },
+            h(
+              'div',
+              { className: 'dmb-sheet-head' },
+              h('span', { className: 'dmb-sheet-title' }, T.settingsTitle),
+              h(
+                'button',
+                { type: 'button', className: 'dmb-sheet-close', onClick: () => setOpen(false) },
+                T.close,
+              ),
+            ),
+            h('div', { className: 'dmb-sheet-body' }, h(SettingsPanel, null)),
+          )
+        : null
+
+      return h(
+        react.Fragment,
+        null,
+        h(
+          'button',
+          { type: 'button', className: 'dmb-fab', onClick: () => setOpen(true) },
+          T.openFullscreen,
+        ),
+        sheet !== null && reactDom ? reactDom.createPortal(sheet, document.body) : sheet,
+      )
+    }
+
+    /** 注册到 settings.section 的组件：抽屉内渲染概览，窄屏额外给一个全屏入口。 */
+    function SettingsLaunchPanel() {
+      ensureStyle()
+      const [narrow, setNarrow] = react.useState(
+        () => typeof window !== 'undefined' && window.innerWidth < 520,
+      )
+      react.useEffect(() => {
+        if (typeof window === 'undefined') return undefined
+        const onResize = () => setNarrow(window.innerWidth < 520)
+        window.addEventListener('resize', onResize)
+        return () => window.removeEventListener('resize', onResize)
+      }, [])
+      return h(
+        react.Fragment,
+        null,
+        h(SettingsPanel, null),
+        narrow ? h(SettingsLauncher, null) : null,
+      )
+    }
+
     function apply(ctx) {
       if (typeof document === 'undefined') return
       // 先回执再注册：这样即使 slot 注册失败，宿主也能观测到「半身确实执行到了哪一步」。
@@ -468,7 +562,7 @@ window.__ModuleLoader__.load({
       }
       const registrations = [
         ['shell.overlay', { name: 'shell.overlay', id: 'dsh-mobile-bridge-approval', order: 900, label: () => T.title }, ApprovalOverlay],
-        ['settings.section', { name: 'settings.section', id: 'dsh-mobile-bridge', order: 120, label: () => T.settingsTitle }, SettingsPanel],
+        ['settings.section', { name: 'settings.section', id: 'dsh-mobile-bridge', order: 120, label: () => T.settingsTitle }, SettingsLaunchPanel],
       ]
       const failed = []
       for (const [slotName, options, Component] of registrations) {
