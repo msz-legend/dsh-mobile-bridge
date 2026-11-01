@@ -1,6 +1,6 @@
 {
   "name": "dsh-mobile-bridge",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "private": true,
   "type": "module",
   "description": "用手机浏览器安全接入 DSH Desktop：扫码配对、流式回显、工具审批（once / always / reject）。",

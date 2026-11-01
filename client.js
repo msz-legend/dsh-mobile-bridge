@@ -49,7 +49,7 @@ window.__ModuleLoader__.load({
       online: ZH ? '在线' : 'online',
       pending: ZH ? '待审批' : 'Pending approvals',
       rules: ZH ? 'always 规则' : 'Always rules',
-      timeout: ZH ? '审批超时' : 'Approval timeout',
+      approvalTimeout: ZH ? '审批超时' : 'Approval timeout',
       address: ZH ? '访问地址' : 'Access URL',
       pairCode: ZH ? '生成配对码' : 'New pairing code',
       pairHint: ZH ? '用手机扫描二维码，或打开地址后输入配对码。' : 'Scan the QR code, or open the URL and enter the code.',
@@ -65,8 +65,7 @@ window.__ModuleLoader__.load({
       allow: ZH ? '允许' : 'Allow',
       allowedText: ZH ? '已允许，等待手机进入…' : 'Allowed — waiting for the phone…',
       deniedText: ZH ? '已拒绝。' : 'Denied.',
-      close: ZH ? '关闭' : 'Close',
-      openFullscreen: ZH ? '全屏查看' : 'Full screen',
+      back: ZH ? '返回设置列表' : 'Back to settings list',
     }
 
     const CSS = `
@@ -101,22 +100,28 @@ window.__ModuleLoader__.load({
 .dmb-addr{word-break:break-all;overflow-wrap:anywhere;font:12px/1.5 ui-monospace,Consolas,monospace;background:rgba(127,127,127,.08);padding:8px 10px;border-radius:8px;margin:8px 0;max-width:100%;box-sizing:border-box}
 .dmb-qr{display:block;width:100%;max-width:220px;margin:10px auto;border-radius:10px;background:#fff;padding:6px;box-sizing:border-box}
 .dmb-settings .dmb-btn{margin-top:8px;width:100%;max-width:100%;box-sizing:border-box}
-/* 窄屏全屏接管：宿主设置抽屉在 360dp 下把内容区压到 ~124px，插件入口改为 fixed 全屏层。
-   只在「用户主动点悬浮按钮展开」时出现，默认不遮挡宿主设置页。 */
-.dmb-fab{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));z-index:2147482000;
-  display:flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:10px 16px;
-  background:#2563eb;color:#fff;font:600 13px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;
-  box-shadow:0 8px 24px rgba(37,99,235,.42);cursor:pointer;max-width:calc(100vw - 28px)}
-.dmb-sheet{position:fixed;inset:0;z-index:2147482100;background:var(--dsw-specific-input-major,#fff);
-  color:var(--dsw-alias-label-primary,#111);display:flex;flex-direction:column;
-  font:13px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
-.dmb-sheet-head{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
-  border-bottom:1px solid rgba(127,127,127,.22)}
-.dmb-sheet-title{font-weight:600;font-size:15px;margin-right:auto}
-.dmb-sheet-close{border:1px solid rgba(127,127,127,.35);background:transparent;color:inherit;border-radius:10px;
-  min-width:40px;min-height:40px;padding:0 12px;font-size:13px;font-weight:600;cursor:pointer}
-.dmb-sheet-body{flex:1 1 auto;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
-.dmb-sheet-body .dmb-settings{max-width:720px;margin:0 auto}
+/* 窄屏设置抽屉：改成「列表 → 详情」两级导航（逻辑见 installSettingsNav）。
+   宿主的设置抽屉是「左导航 + 右内容」双栏固定布局，360dp 下导航占 ~60%、
+   内容只剩 ~124px，文字全部叠在一起。窄屏下这里改为：
+     列表态：只显示导航，导航占满抽屉；
+     详情态：抽屉铺满视口、内容占满宽度、导航隐藏，左上角出现返回箭头。
+   选择器全部基于 CSS-module 语义后缀（_nav/_content/_options），跨构建稳定；
+   宿主改语义名时规则自然失效，不会把界面弄坏。 */
+@media (max-width: 520px){
+  [data-dmb-settings][data-dmb-mode="list"] [data-dmb-content]{display:none !important}
+  [data-dmb-settings][data-dmb-mode="list"] [data-dmb-nav]{
+    width:100% !important;max-width:none !important;flex:1 1 auto !important}
+  [data-dmb-settings][data-dmb-mode="detail"]{width:100vw !important;max-width:100vw !important}
+  [data-dmb-settings][data-dmb-mode="detail"] [data-dmb-nav]{display:none !important}
+  [data-dmb-settings][data-dmb-mode="detail"] [data-dmb-content]{
+    width:100% !important;max-width:none !important;flex:1 1 auto !important}
+  [data-dmb-settings] [data-dmb-content] [class*="_options"]{overflow-x:hidden !important}
+}
+.dmb-nav-back{position:fixed;z-index:2147482140;display:flex;align-items:center;justify-content:center;
+  width:40px;height:40px;border-radius:12px;border:1px solid rgba(127,127,127,.35);
+  background:rgba(127,127,127,.14);color:inherit;font-size:22px;line-height:1;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;backdrop-filter:blur(6px)}
+.dmb-nav-back:active{background:rgba(127,127,127,.28)}
 `
 
     function ensureStyle() {
@@ -447,7 +452,7 @@ window.__ModuleLoader__.load({
           h(Cell, { label: T.online, value: data === undefined ? '—' : String(data.devices.online) }),
           h(Cell, { label: T.pending, value: data === undefined ? '—' : String(data.pendingApprovals) }),
           h(Cell, { label: T.rules, value: data === undefined ? '—' : String(data.alwaysRules) }),
-          h(Cell, { label: T.timeout, value: timeoutText }),
+          h(Cell, { label: T.approvalTimeout, value: timeoutText }),
           h(Cell, { label: T.clientLoaded, value: data === undefined ? '—' : String(data.clientHalf) }),
         ),
         desktop
@@ -477,83 +482,156 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * 窄屏全屏接管入口。
+     * 窄屏设置抽屉的两级导航。
      *
-     * 宿主设置抽屉（.AnXs9G_panel）在 360dp 手机视口下只给内容区约 124px，
-     * 插件面板再怎么自适应也读不清（实测 rect 宽 76px）。这里在设置页内挂一个
-     * 悬浮按钮，点开把同一份 SettingsPanel 以 fixed 全屏 sheet 渲染到 body，
-     * 彻底绕开宿主容器宽度限制；宿主抽屉本身不受影响，关掉 sheet 就回到原状。
+     * 宿主设置抽屉是「左导航 + 右内容」双栏固定布局；360dp 手机上导航吃掉约 60%
+     * 宽度，内容只剩 ~124px（实测），所有文字挤成一列互相重叠 —— 这是「设置页卡死」
+     * 的真正观感来源，而且它影响宿主自己的分区（账号与余额等），不只是本插件。
+     *
+     * 这里在窄屏下把它改成两级导航：
+     *   列表态：只显示导航，导航占满抽屉；
+     *   详情态：抽屉铺满视口、内容占满宽度、导航隐藏，左上角出现返回箭头。
+     * 定位全部用 CSS-module 语义后缀（_options/_panel/_nav/_content）匹配，
+     * 宿主换 hash 前缀不影响；换语义名则规则自动失效，不会误伤其他面板。
      */
-    function SettingsLauncher() {
-      ensureStyle()
-      const [open, setOpen] = react.useState(false)
+    function installSettingsNav() {
+      if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return
+      if (typeof document.body === 'undefined') return
+      const narrow = window.matchMedia('(max-width: 520px)')
+      let root
+      let back
+      let frame = 0
 
-      react.useEffect(() => {
-        if (!open || typeof document === 'undefined') return undefined
-        const onKey = (event) => {
-          if (event.key === 'Escape') setOpen(false)
+      const tokensOf = (el) => {
+        const cls = el === null || el === undefined ? undefined : el.className
+        return typeof cls === 'string' && cls.trim() !== '' ? cls.trim().split(/\s+/) : []
+      }
+      const hasSuffix = (el, suffix) =>
+        tokensOf(el).some((token) => token.length > suffix.length && token.slice(-suffix.length) === suffix)
+      const climb = (el, suffix, depth) => {
+        let node = el
+        for (let index = 0; index < depth && node !== null && node !== undefined; index += 1) {
+          if (hasSuffix(node, suffix)) return node
+          node = node.parentElement
         }
-        document.addEventListener('keydown', onKey)
-        const previous = document.body.style.overflow
-        document.body.style.overflow = 'hidden'
-        return () => {
-          document.removeEventListener('keydown', onKey)
-          document.body.style.overflow = previous
-        }
-      }, [open])
+        return undefined
+      }
+      const childWith = (parent, suffix) => {
+        if (parent === null || parent === undefined) return undefined
+        return [...parent.children].find((child) => hasSuffix(child, suffix))
+      }
 
-      const sheet = open
-        ? h(
-            'div',
-            { className: 'dmb-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': T.settingsTitle },
-            h(
-              'div',
-              { className: 'dmb-sheet-head' },
-              h('span', { className: 'dmb-sheet-title' }, T.settingsTitle),
-              h(
-                'button',
-                { type: 'button', className: 'dmb-sheet-close', onClick: () => setOpen(false) },
-                T.close,
-              ),
-            ),
-            h('div', { className: 'dmb-sheet-body' }, h(SettingsPanel, null)),
+      function placeBack() {
+        if (root === undefined || back === undefined) return
+        const content = root.querySelector('[data-dmb-content]')
+        const rect = (content ?? root).getBoundingClientRect()
+        back.style.top = `${Math.max(8, Math.round(rect.top + 8))}px`
+        back.style.left = `${Math.max(8, Math.round(rect.left + 8))}px`
+        back.style.display = root.getAttribute('data-dmb-mode') === 'detail' ? 'flex' : 'none'
+      }
+
+      function setMode(mode) {
+        if (root === undefined) return
+        root.setAttribute('data-dmb-mode', mode)
+        placeBack()
+      }
+
+      function cleanup() {
+        if (root !== undefined) {
+          const nav = childWith(root, '_nav')
+          const content = childWith(root, '_content')
+          root.removeAttribute('data-dmb-settings')
+          root.removeAttribute('data-dmb-mode')
+          if (nav !== undefined) nav.removeAttribute('data-dmb-nav')
+          if (content !== undefined) content.removeAttribute('data-dmb-content')
+        }
+        root = undefined
+        if (back !== undefined) back.style.display = 'none'
+      }
+
+      function bind() {
+        if (!narrow.matches) {
+          cleanup()
+          return
+        }
+        const options = [...document.querySelectorAll('[class*="_options"]')].find((el) => hasSuffix(el, '_options'))
+        if (options === undefined) {
+          cleanup()
+          return
+        }
+        const panel = climb(options, '_panel', 6)
+        if (panel === undefined) {
+          cleanup()
+          return
+        }
+        const nav = childWith(panel, '_nav')
+        const content = childWith(panel, '_content')
+        if (nav === undefined || content === undefined) {
+          cleanup()
+          return
+        }
+        if (root === panel) {
+          placeBack()
+          return
+        }
+        cleanup()
+        root = panel
+        root.setAttribute('data-dmb-settings', '')
+        root.setAttribute('data-dmb-mode', 'list')
+        nav.setAttribute('data-dmb-nav', '')
+        content.setAttribute('data-dmb-content', '')
+        if (back === undefined) {
+          back = document.createElement('button')
+          back.type = 'button'
+          back.className = 'dmb-nav-back'
+          back.setAttribute('aria-label', T.back)
+          back.textContent = '\u2039'
+          back.addEventListener(
+            'click',
+            (event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              setMode('list')
+            },
+            true,
           )
-        : null
+          document.body.appendChild(back)
+        }
+        placeBack()
+      }
 
-      return h(
-        react.Fragment,
-        null,
-        h(
-          'button',
-          { type: 'button', className: 'dmb-fab', onClick: () => setOpen(true) },
-          T.openFullscreen,
-        ),
-        sheet !== null && reactDom ? reactDom.createPortal(sheet, document.body) : sheet,
-      )
-    }
+      function schedule() {
+        if (frame !== 0) return
+        frame = window.requestAnimationFrame(() => {
+          frame = 0
+          bind()
+        })
+      }
 
-    /** 注册到 settings.section 的组件：抽屉内渲染概览，窄屏额外给一个全屏入口。 */
-    function SettingsLaunchPanel() {
-      ensureStyle()
-      const [narrow, setNarrow] = react.useState(
-        () => typeof window !== 'undefined' && window.innerWidth < 520,
+      // 点导航项 → 进详情态。用捕获阶段，保证在宿主自己的选中逻辑之前/之后都能生效。
+      document.addEventListener(
+        'click',
+        (event) => {
+          if (root === undefined) return
+          const target = event.target
+          if (target === null || target === undefined || typeof target.closest !== 'function') return
+          if (target.closest('.dmb-nav-back') !== null) return
+          const nav = root.querySelector('[data-dmb-nav]')
+          if (nav !== null && nav.contains(target)) setMode('detail')
+        },
+        true,
       )
-      react.useEffect(() => {
-        if (typeof window === 'undefined') return undefined
-        const onResize = () => setNarrow(window.innerWidth < 520)
-        window.addEventListener('resize', onResize)
-        return () => window.removeEventListener('resize', onResize)
-      }, [])
-      return h(
-        react.Fragment,
-        null,
-        h(SettingsPanel, null),
-        narrow ? h(SettingsLauncher, null) : null,
-      )
+      window.addEventListener('resize', schedule, { passive: true })
+      window.addEventListener('orientationchange', schedule, { passive: true })
+      if (typeof narrow.addEventListener === 'function') narrow.addEventListener('change', schedule)
+      new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true })
+      bind()
     }
 
     function apply(ctx) {
       if (typeof document === 'undefined') return
+      ensureStyle()
+      installSettingsNav()
       // 先回执再注册：这样即使 slot 注册失败，宿主也能观测到「半身确实执行到了哪一步」。
       const slots = ctx?.slots ?? (typeof ctx?.get === 'function' ? ctx.get('slots') : undefined)
       if (slots === undefined || slots === null) {
@@ -562,7 +640,7 @@ window.__ModuleLoader__.load({
       }
       const registrations = [
         ['shell.overlay', { name: 'shell.overlay', id: 'dsh-mobile-bridge-approval', order: 900, label: () => T.title }, ApprovalOverlay],
-        ['settings.section', { name: 'settings.section', id: 'dsh-mobile-bridge', order: 120, label: () => T.settingsTitle }, SettingsLaunchPanel],
+        ['settings.section', { name: 'settings.section', id: 'dsh-mobile-bridge', order: 120, label: () => T.settingsTitle }, SettingsPanel],
       ]
       const failed = []
       for (const [slotName, options, Component] of registrations) {
