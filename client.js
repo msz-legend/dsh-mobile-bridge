@@ -140,6 +140,15 @@ button[data-dmb-icon][data-dmb-tiny]{min-width:24px !important;min-height:24px !
 .dmb-banner span{flex:1 1 auto;min-width:0}
 .dmb-banner-btn{flex:0 0 auto;min-height:32px;padding:0 12px;border-radius:8px;border:1px solid rgba(255,255,255,.4);
   background:rgba(255,255,255,.14);color:inherit;font:600 13px/1 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
+/* 窄屏侧栏浮层：宿主是桌面双栏布局，侧栏展开时占 ~280px，360dp 下主内容只剩几十像素。
+   窄屏下把展开的侧栏改成浮层（脱离文档流），并把外层 grid 的第一列收成 0，
+   主内容即可拿回全宽；侧栏自身的收起按钮照常可用。 */
+html[data-dmb-narrow="1"] [class*="_root"][class*="_quietBars"]{
+  position:fixed !important;left:0;top:0;bottom:0;z-index:2147481900 !important;
+  box-shadow:0 0 0 100vmax rgba(0,0,0,.42), 0 18px 40px rgba(0,0,0,.3);
+  overflow-y:auto;overscroll-behavior:contain}
+html[data-dmb-narrow="1"][data-dmb-sidebar="expanded"] [class*="_frame"]{
+  grid-template-columns:0px minmax(0,1fr) 0px !important}
 `
 
     function ensureStyle() {
@@ -773,9 +782,57 @@ button[data-dmb-icon][data-dmb-tiny]{min-width:24px !important;min-height:24px !
       }
     }
 
+    /**
+     * 窄屏标记。
+     *
+     * 真机实测：华为浏览器开「桌面版网站」时 UA 是桌面、viewport meta 被忽略，
+     * 布局宽度固定 980 再缩放，media query 判不出来；改用 screen.width 判设备宽度。
+     * 结果写到 <html data-dmb-narrow="1">，CSS 用它切换窄屏布局补丁
+     * （设置抽屉两级导航、侧栏浮层、图标按钮保圆）。
+     */
+    function installNarrowFlag() {
+      if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return
+      const isNarrow = () => {
+        const screenWidth = typeof window.screen === 'object' ? Number(window.screen.width) || 0 : 0
+        return screenWidth > 0 && screenWidth <= 600 ? true : window.innerWidth <= 520
+      }
+      let frame = 0
+      const apply = () => {
+        const html = document.documentElement
+        if (html === null) return
+        if (isNarrow()) html.setAttribute('data-dmb-narrow', '1')
+        else html.removeAttribute('data-dmb-narrow')
+        // 侧栏是否展开：宿主用 grid 的第一列给侧栏留宽，展开时手机上会挤掉主内容。
+        const sidebar = document.querySelector('[class*="_root"][class*="_quietBars"]')
+        const expanded = sidebar !== null && sidebar.getBoundingClientRect().width > 150
+        if (expanded) html.setAttribute('data-dmb-sidebar', 'expanded')
+        else html.removeAttribute('data-dmb-sidebar')
+      }
+      const schedule = () => {
+        if (frame !== 0) return
+        frame = window.requestAnimationFrame(() => {
+          frame = 0
+          apply()
+        })
+      }
+      // 侧栏展开/收起有动画，MutationObserver 可能只捕捉到中间态；
+      // 点击后再补两次延迟测量，确保最终状态被正确写入。
+      const scheduleSettled = () => {
+        schedule()
+        window.setTimeout(apply, 120)
+        window.setTimeout(apply, 520)
+      }
+      document.addEventListener('click', scheduleSettled, true)
+      window.addEventListener('resize', schedule, { passive: true })
+      window.addEventListener('orientationchange', schedule, { passive: true })
+      new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true })
+      apply()
+    }
+
     function apply(ctx) {
       if (typeof document === 'undefined') return
       ensureStyle()
+      installNarrowFlag()
       installTransportResilience()
       installSettingsNav()
       installIconButtonFix()
