@@ -51,6 +51,7 @@ const DEFAULTS = {
   tunnelMode: 'quick',
   tunnelToken: '',
   tunnelBin: 'cloudflared',
+  tunnelProtocol: '',
 }
 
 const asPositiveInt = (value, fallback) => {
@@ -79,6 +80,8 @@ function normalize(raw) {
   config.tunnelMode = input.tunnelMode === 'token' ? 'token' : 'quick'
   config.tunnelToken = typeof input.tunnelToken === 'string' ? input.tunnelToken.trim() : ''
   config.tunnelBin = typeof input.tunnelBin === 'string' && input.tunnelBin.trim() !== '' ? input.tunnelBin.trim() : DEFAULTS.tunnelBin
+  config.tunnelProtocol =
+    input.tunnelProtocol === 'http2' || input.tunnelProtocol === 'quic' ? input.tunnelProtocol : DEFAULTS.tunnelProtocol
   config.dshPort = 0
   return config
 }

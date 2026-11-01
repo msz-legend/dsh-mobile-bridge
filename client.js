@@ -66,6 +66,9 @@ window.__ModuleLoader__.load({
       allowedText: ZH ? '已允许，等待手机进入…' : 'Allowed — waiting for the phone…',
       deniedText: ZH ? '已拒绝。' : 'Denied.',
       back: ZH ? '返回设置列表' : 'Back to settings list',
+      linkLost: ZH
+        ? '连接已中断：隧道地址可能已更换。请刷新页面；仍失败就回电脑上重新生成配对码并扫码。'
+        : 'Connection lost: the tunnel address may have changed. Refresh; if it persists, re-pair from the desktop.',
     }
 
     const CSS = `
@@ -129,6 +132,14 @@ window.__ModuleLoader__.load({
    取消 min-height 并强制正方形（见 installIconButtonFix），文字按钮不受影响。 */
 button[data-dmb-icon]{min-height:0 !important;aspect-ratio:1 / 1 !important}
 button[data-dmb-icon][data-dmb-tiny]{min-width:24px !important;min-height:24px !important}
+/* 隧道断开提示条 */
+.dmb-banner{position:fixed;left:8px;right:8px;top:calc(8px + env(safe-area-inset-top));z-index:2147482500;
+  display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;
+  background:#7f1d1d;color:#fee2e2;font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;
+  box-shadow:0 8px 24px rgba(0,0,0,.35)}
+.dmb-banner span{flex:1 1 auto;min-width:0}
+.dmb-banner-btn{flex:0 0 auto;min-height:32px;padding:0 12px;border-radius:8px;border:1px solid rgba(255,255,255,.4);
+  background:rgba(255,255,255,.14);color:inherit;font:600 13px/1 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
 `
 
     function ensureStyle() {
@@ -681,9 +692,91 @@ button[data-dmb-icon][data-dmb-tiny]{min-width:24px !important;min-height:24px !
       schedule()
     }
 
+    /**
+     * 移动网络 / 隧道抖动兜底。
+     *
+     * 真机实测：cloudflared quick tunnel 重启后地址会变，已经打开的手机页面还在用旧域名，
+     * 所有 API 调用都被 Cloudflare 边缘回 530（gateway/internal，回源不可达），表现为
+     * 「消息发不出去」。这里做两件事：
+     *   1. 对 /api/ 的 502/503/504/529/530 做有限重试（body 可重放的请求才重试）；
+     *   2. 连续失败后给一条明确提示，告诉用户刷新/重新扫码，而不是静默失败。
+     */
+    function installTransportResilience() {
+      if (typeof window === 'undefined' || typeof window.fetch !== 'function') return
+      if (window.__dmbTransportPatched === true) return
+      const original = window.fetch.bind(window)
+      window.__dmbTransportPatched = true
+      const RETRY_STATUS = [502, 503, 504, 529, 530]
+      const MAX_RETRY = 2
+      let bannerShownAt = 0
+
+      const showBanner = () => {
+        const now = Date.now()
+        if (now - bannerShownAt < 20000) return
+        bannerShownAt = now
+        try {
+          let banner = document.getElementById('dmb-transport-banner')
+          if (banner === null) {
+            banner = document.createElement('div')
+            banner.id = 'dmb-transport-banner'
+            banner.className = 'dmb-banner'
+            const text = document.createElement('span')
+            text.textContent = T.linkLost
+            const button = document.createElement('button')
+            button.type = 'button'
+            button.className = 'dmb-banner-btn'
+            button.textContent = T.reload
+            button.addEventListener('click', () => window.location.reload())
+            banner.appendChild(text)
+            banner.appendChild(button)
+            document.body.appendChild(banner)
+          }
+          banner.style.display = 'flex'
+          setTimeout(() => {
+            if (banner !== null) banner.style.display = 'none'
+          }, 12000)
+        } catch {
+          /* ignore */
+        }
+      }
+
+      const replayable = (init) => {
+        if (init === undefined || init === null) return true
+        const body = init.body
+        if (body === undefined || body === null) return true
+        return typeof body === 'string' || body instanceof ArrayBuffer || (typeof Blob !== 'undefined' && body instanceof Blob)
+      }
+
+      window.fetch = async (input, init) => {
+        const url = typeof input === 'string' ? input : input !== null && input !== undefined ? String(input.url ?? '') : ''
+        const method = String((init !== undefined && init !== null && init.method) || (input !== null && input !== undefined && input.method) || 'GET').toUpperCase()
+        const watched = url.indexOf('/api/') !== -1 || url.indexOf(BASE) !== -1
+        if (!watched || (method !== 'GET' && !replayable(init))) return original(input, init)
+        let attempt = 0
+        for (;;) {
+          try {
+            const response = await original(input, init)
+            if (RETRY_STATUS.indexOf(response.status) === -1) return response
+            if (attempt >= MAX_RETRY) {
+              showBanner()
+              return response
+            }
+          } catch (error) {
+            if (attempt >= MAX_RETRY) {
+              showBanner()
+              throw error
+            }
+          }
+          attempt += 1
+          await new Promise((resolve) => setTimeout(resolve, 350 * attempt))
+        }
+      }
+    }
+
     function apply(ctx) {
       if (typeof document === 'undefined') return
       ensureStyle()
+      installTransportResilience()
       installSettingsNav()
       installIconButtonFix()
       // 先回执再注册：这样即使 slot 注册失败，宿主也能观测到「半身确实执行到了哪一步」。

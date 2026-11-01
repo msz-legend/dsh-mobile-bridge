@@ -26,6 +26,10 @@
         tunnelMode: 'quick'
         tunnelToken: ''
         tunnelBin: 'C:/Program Files (x86)/cloudflared/cloudflared.exe'
+        # 隧道传输协议：留空 = cloudflared 自选(QUIC)。
+        # 本机装了 Cloudflare WARP 时，QUIC 会被 WARP 劫持导致 control stream 超时、
+        # 隧道反复重启换地址（手机侧表现为 HTTP 530 发不出消息），此时填 http2 更稳。
+        tunnelProtocol: 'http2'
         # 手机离线时审批先等一拍（SSE 重连通常在数秒内），到期仍无人再按来源分流。
         offlineGraceMs: 5000
         # 手机/LAN 来源的配对需桌面确认；确认请求的有效期。
