@@ -13,17 +13,14 @@ DSH Mobile Bridge：让手机浏览器在「不重建前端」的前提下接入
 
 | 项 | 值 |
 |---|---|
-| 版本 | **0.4.4** |
-| git HEAD | `a5b8f9f` feat: two-step settings nav on narrow screens（= origin/main） |
+| 版本 | **0.4.5** |
+| git HEAD | `9745e7a` fix: detect narrow by screen.width（= origin/main） |
 | 工作树 | 干净 |
 | 测试 | `npm test` → 13 + 4 + 4 checks 全绿 |
-| edge | 监听 127.0.0.1:8787 + 192.168.0.108:8787（pid 12476） |
+| edge | 监听 127.0.0.1:8787 + 192.168.0.108:8787 |
 | 宿主 webServer | 127.0.0.1:50438 |
-| cloudflared | quick tunnel running（pid 7748，startedAt 11:54:11，restarts=1） |
-| publicBase | `https://aside-prospects-cst-recall.trycloudflare.com` |
-| 公网可达性 | HTTP 200，约 3.0s（含 CF 冷启动） |
-| 局域网可达性 | HTTP 200，约 15ms |
-| 激活设备 | 0（已清理全部测试设备，待真机配对） |
+| cloudflared | quick tunnel running（地址随重启变化） |
+| 激活设备 | 1（真机 KKG-AN00 已配对） |
 
 ## 3. 已完成的工作（按提交）
 
@@ -35,6 +32,18 @@ DSH Mobile Bridge：让手机浏览器在「不重建前端」的前提下接入
 | `d381990` | chore: bump version to 0.4.3 |
 | `99edd65` | docs: update handoff to v0.4.3 verified state |
 | `a5b8f9f` | feat: two-step settings nav on narrow screens (v0.4.4) |
+| `2618075` | docs: handoff for v0.4.4 |
+| `9745e7a` | fix: detect narrow by screen.width so patches survive desktop-mode browsers (v0.4.5) |
+
+### 3.0 真机根因（2026-11-01 14:00，CDP 实测）
+
+**华为浏览器开着「桌面版网站」模式**：UA 报 `Mozilla/5.0 (Windows NT 10.0; Win64; x64)`，
+`screen.width=360` 但 `innerWidth=980`、`visualViewport.scale=0.367`。
+浏览器忽略 viewport meta，按 980px 排版后整体缩放到 360px。
+
+后果：所有 `@media (max-width:…)` 规则**全部不生效** —— 两级设置导航、图标按钮保圆都没执行。
+**修复**：改用 `screen.width <= 600` 判设备宽度，CSS 走 `data-dmb-narrow` 属性而非媒体查询。
+**用户侧建议**：在华为浏览器里关闭该站点的「桌面版网站」，才能恢复正常的移动端排版（当前是 1/2.7 缩放，字很小）。
 
 ### 3.1 设置页「UI 卡死」根因与修复
 
