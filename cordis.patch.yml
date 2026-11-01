@@ -20,11 +20,12 @@
         # 公网档通道：cloudflared 隧道。先 `winget install Cloudflare.cloudflared`，
         # 然后把 tunnelEnabled 改成 true，重启 Desktop 后 quick tunnel 地址
         # （https://<random>.trycloudflare.com）会自动出现在设置页与配对二维码里。
-        tunnelEnabled: false
+        tunnelEnabled: true
         # quick = 零账号临时隧道（每次重启换地址）；token = 远程管理的命名隧道，
         # 需要填 tunnelToken 并显式写 publicBase（域名在 Cloudflare 后台配置）。
         tunnelMode: 'quick'
         tunnelToken: ''
+        tunnelBin: 'C:/Program Files (x86)/cloudflared/cloudflared.exe'
         # 手机离线时审批先等一拍（SSE 重连通常在数秒内），到期仍无人再按来源分流。
         offlineGraceMs: 5000
         # 手机/LAN 来源的配对需桌面确认；确认请求的有效期。
