@@ -22,6 +22,7 @@ import { createPairing } from './lib/pairing.js'
 import { createApprovalBridge } from './lib/approval-bridge.js'
 import { createEdge } from './lib/edge.js'
 import { createCloudflared } from './lib/cloudflared.js'
+import { createHostLogin } from './lib/host-login.js'
 import { registerRoutes, DEVICE_COOKIE } from './lib/routes.js'
 import { resolvePublicBase } from './lib/tunnel.js'
 import { installIndexInjection } from './lib/index-inject.js'
@@ -150,6 +151,7 @@ export function apply(ctx, raw) {
           return undefined
         }
       }
+      const hostLogin = createHostLogin({ getLaunchUrl, log })
 
       routes = registerRoutes(scoped, {
         config,
@@ -161,6 +163,7 @@ export function apply(ctx, raw) {
         log,
         getPublicBase,
         getLaunchUrl,
+        hostLogin,
         clientHello,
         tunnel,
         getEdgeStatus: () => ({
@@ -171,7 +174,7 @@ export function apply(ctx, raw) {
         }),
       })
 
-      edge = createEdge({ config, log, pairing, hub, origins })
+      edge = createEdge({ config, log, pairing, hub, origins, hostLogin })
       edge.start().then((result) => {
         publicBaseCache = undefined
         if (result?.ok !== true) {

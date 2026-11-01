@@ -292,6 +292,23 @@ npm test
 
 一次审批在任何屏幕上**只出现一张卡**，由 waterfall 语义保证：设备在线时插件以 `prepend` 先答，桌面原生审批 UI 不会介入（只有我们的卡片）；宽限到期且无设备时本地会话走 `next()` 交给桌面原生卡（我们的卡片从未广播）；远程会话则 fail closed。桌面页与手机会看到同一张 DMB 卡（设计如此，便于在电脑前快速处理）。
 
+## 真机验证记录（华为 Android，360dp 视口，USB + adb reverse）
+
+2026-11-01 在真机上走查的结论（此前所有验证都在 412×915 模拟器）：
+
+- 配对 → 桌面确认 → 进 UI：全链路通过；数字键盘、`maxlength` 截断、键盘顶起布局等真机交互均正常
+- 发消息 / 流式 / 会话视图 / 右侧栏：与模拟器一致
+- **审批卡片真机弹出**，决策回流宿主（agent 侧确认 "there was a real answer"）；超时 fail-closed 与 remote 30s 超时语义均实测生效
+- 只读文件策略下，即使升级提权被批准，宿主仍拒绝写入 —— 文件策略是硬边界，审批不越权（宿主安全语义，符合预期）
+
+真机实测揪出并修复的问题（模拟器上全部不可复现）：
+
+1. 华为浏览器聚焦 <16px 输入框时自动放大，整页横向推走、发送按钮出屏 → viewport 加 `maximum-scale=1` + contenteditable 纳入 16px 规则
+2. 宿主重启后 owner cookie 失效，手机卡死在 "authentication required" → edge 对已配对设备 401 时自动重登并重放请求（`lib/host-login.js`）
+3. 审批卡片被右侧裁出屏幕 → `position:fixed` 被宿主带 transform 的容器劫持，卡片 portal 到 `document.body`
+4. 手机缓存旧 client 半身（宿主模块表 rev 不随内容变化）→ edge 对 `/plugins/` 响应强制 no-cache
+5. 手机从 home 发消息创建的会话未标记 remote（走的不是 session/create）→ 观察 `session/prompt` 响应 + 扫描设备请求体里的 sessionId
+
 ## 故障排查
 
 - **插件升级后界面残缺 / 少控件 / 报 "Failed to load plugins"**：多半是浏览器仍持有旧页面。插件会在 index 注入 `Cache-Control: no-cache` 等 meta 降低概率，但仍建议强制刷新（手机上：下拉刷新或清缓存后重开）。

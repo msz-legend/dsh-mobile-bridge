@@ -18,6 +18,15 @@ window.__ModuleLoader__.load({
 
     const react = require('react')
     const h = react.createElement
+    // 官方 client-ui-* 包同款：宿主模块表提供 react-dom。
+    // 卡片必须 portal 到 body —— position:fixed 在带 transform 的宿主容器里会被
+    // 劫持 containing-block，真机（360dp）上卡片右半被裁出屏幕（实测踩过）。
+    let reactDom = undefined
+    try {
+      reactDom = require('react-dom')
+    } catch {
+      /* 老宿主没有 react-dom 时退化为原位渲染 */
+    }
 
     const BASE = '/plugins/dsh-mobile-bridge'
     const STYLE_ID = 'dsh-mobile-bridge-approval'
@@ -322,16 +331,19 @@ window.__ModuleLoader__.load({
     function ApprovalOverlay() {
       ensureStyle()
       const [items, setItems, pairRequests] = useApprovalFeed()
+      let tree = null
       if (items.length > 0) {
         const request = items[0]
         const onDecide = (requestId, decision) => {
           setItems((previous) => previous.filter((entry) => entry.requestId !== requestId))
           return postDecision(requestId, decision).catch(() => undefined)
         }
-        return h(Card, { request, onDecide })
+        tree = h(Card, { request, onDecide })
+      } else if (pairRequests.length > 0) {
+        tree = h(PairCard, { request: pairRequests[0] })
       }
-      if (pairRequests.length > 0) return h(PairCard, { request: pairRequests[0] })
-      return null
+      if (tree === null) return null
+      return reactDom ? reactDom.createPortal(tree, document.body) : tree
     }
 
     function sendHello(note) {
