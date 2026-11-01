@@ -101,27 +101,34 @@ window.__ModuleLoader__.load({
 .dmb-qr{display:block;width:100%;max-width:220px;margin:10px auto;border-radius:10px;background:#fff;padding:6px;box-sizing:border-box}
 .dmb-settings .dmb-btn{margin-top:8px;width:100%;max-width:100%;box-sizing:border-box}
 /* 窄屏设置抽屉：改成「列表 → 详情」两级导航（逻辑见 installSettingsNav）。
-   宿主的设置抽屉是「左导航 + 右内容」双栏固定布局，360dp 下导航占 ~60%、
-   内容只剩 ~124px，文字全部叠在一起。窄屏下这里改为：
+   宿主的设置抽屉是「左导航 + 右内容」双栏固定布局，360dp 下导航吃掉大半宽度、
+   内容只剩一点点，文字叠在一起。窄屏下这里改为：
      列表态：只显示导航，导航占满抽屉；
      详情态：抽屉铺满视口、内容占满宽度、导航隐藏，左上角出现返回箭头。
-   选择器全部基于 CSS-module 语义后缀（_nav/_content/_options），跨构建稳定；
-   宿主改语义名时规则自然失效，不会把界面弄坏。 */
-@media (max-width: 520px){
-  [data-dmb-settings][data-dmb-mode="list"] [data-dmb-content]{display:none !important}
-  [data-dmb-settings][data-dmb-mode="list"] [data-dmb-nav]{
-    width:100% !important;max-width:none !important;flex:1 1 auto !important}
-  [data-dmb-settings][data-dmb-mode="detail"]{width:100vw !important;max-width:100vw !important}
-  [data-dmb-settings][data-dmb-mode="detail"] [data-dmb-nav]{display:none !important}
-  [data-dmb-settings][data-dmb-mode="detail"] [data-dmb-content]{
-    width:100% !important;max-width:none !important;flex:1 1 auto !important}
-  [data-dmb-settings] [data-dmb-content] [class*="_options"]{overflow-x:hidden !important}
-}
+   注意：不用 @media 判宽，而是由 JS 打 data-dmb-narrow。
+   原因（真机实测）：华为浏览器开「桌面版网站」时 UA 是桌面 UA、viewport meta 被忽略，
+   布局宽度固定 980px 再整体缩放，max-width 媒体查询全部不生效。
+   JS 用 screen.width 判设备宽度，比媒体查询可靠。
+   其余选择器基于 CSS-module 语义后缀（_nav/_content/_options），跨构建稳定。 */
+[data-dmb-settings][data-dmb-narrow="1"][data-dmb-mode="list"] [data-dmb-content]{display:none !important}
+[data-dmb-settings][data-dmb-narrow="1"][data-dmb-mode="list"] [data-dmb-nav]{
+  width:100% !important;max-width:none !important;flex:1 1 auto !important}
+[data-dmb-settings][data-dmb-narrow="1"][data-dmb-mode="detail"]{
+  width:100vw !important;max-width:100vw !important}
+[data-dmb-settings][data-dmb-narrow="1"][data-dmb-mode="detail"] [data-dmb-nav]{display:none !important}
+[data-dmb-settings][data-dmb-narrow="1"][data-dmb-mode="detail"] [data-dmb-content]{
+  width:100% !important;max-width:none !important;flex:1 1 auto !important}
+[data-dmb-settings] [data-dmb-content] [class*="_options"]{overflow-x:hidden !important}
 .dmb-nav-back{position:fixed;z-index:2147482140;display:flex;align-items:center;justify-content:center;
-  width:40px;height:40px;border-radius:12px;border:1px solid rgba(127,127,127,.35);
+  width:40px;height:40px;border-radius:50%;border:1px solid rgba(127,127,127,.35);
   background:rgba(127,127,127,.14);color:inherit;font-size:22px;line-height:1;cursor:pointer;
   -webkit-tap-highlight-color:transparent;backdrop-filter:blur(6px)}
 .dmb-nav-back:active{background:rgba(127,127,127,.28)}
+/* 图标按钮保圆：宿主注入的全局 button{min-height:40px} 会把 36x36 的图标按钮
+   撑成 36x40、28x28 撑成 28x40，视觉上就是椭圆。这里只对运行时标记过的按钮
+   取消 min-height 并强制正方形（见 installIconButtonFix），文字按钮不受影响。 */
+button[data-dmb-icon]{min-height:0 !important;aspect-ratio:1 / 1 !important}
+button[data-dmb-icon][data-dmb-tiny]{min-width:24px !important;min-height:24px !important}
 `
 
     function ensureStyle() {
@@ -497,7 +504,12 @@ window.__ModuleLoader__.load({
     function installSettingsNav() {
       if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return
       if (typeof document.body === 'undefined') return
-      const narrow = window.matchMedia('(max-width: 520px)')
+      // 真机实测：华为浏览器开「桌面版网站」时 UA 为桌面、viewport meta 被忽略，
+      // 布局宽度固定 980 再缩放，media query 判不出来。改用 screen.width 判设备宽度。
+      const isNarrow = () => {
+        const screenWidth = typeof window.screen === 'object' ? Number(window.screen.width) || 0 : 0
+        return screenWidth > 0 && screenWidth <= 600 ? true : window.innerWidth <= 520
+      }
       let root
       let back
       let frame = 0
@@ -541,6 +553,7 @@ window.__ModuleLoader__.load({
           const nav = childWith(root, '_nav')
           const content = childWith(root, '_content')
           root.removeAttribute('data-dmb-settings')
+          root.removeAttribute('data-dmb-narrow')
           root.removeAttribute('data-dmb-mode')
           if (nav !== undefined) nav.removeAttribute('data-dmb-nav')
           if (content !== undefined) content.removeAttribute('data-dmb-content')
@@ -550,7 +563,7 @@ window.__ModuleLoader__.load({
       }
 
       function bind() {
-        if (!narrow.matches) {
+        if (!isNarrow()) {
           cleanup()
           return
         }
@@ -577,6 +590,7 @@ window.__ModuleLoader__.load({
         cleanup()
         root = panel
         root.setAttribute('data-dmb-settings', '')
+        root.setAttribute('data-dmb-narrow', '1')
         root.setAttribute('data-dmb-mode', 'list')
         nav.setAttribute('data-dmb-nav', '')
         content.setAttribute('data-dmb-content', '')
@@ -623,15 +637,55 @@ window.__ModuleLoader__.load({
       )
       window.addEventListener('resize', schedule, { passive: true })
       window.addEventListener('orientationchange', schedule, { passive: true })
-      if (typeof narrow.addEventListener === 'function') narrow.addEventListener('change', schedule)
       new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true })
       bind()
+    }
+
+    /**
+     * 图标按钮保圆。
+     *
+     * 注入的 `button{min-height:40px}` 本意是保证触控高度，但它会命中宿主的
+     * 图标按钮（原生 36x36 / 28x28），把高度撑到 40 → 变成椭圆或被拉长。
+     * 这里运行期给「小尺寸 + 含 svg」的按钮打标记，CSS 只对它们取消 min-height
+     * 并强制 aspect-ratio:1，宽按钮（带文字）仍保留 40px 触控高度。
+     */
+    function installIconButtonFix() {
+      if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return
+      // 同 installSettingsNav：桌面版网站模式下列局宽 980，media query 不可靠。
+      const isNarrow = () => {
+        const screenWidth = typeof window.screen === 'object' ? Number(window.screen.width) || 0 : 0
+        return screenWidth > 0 && screenWidth <= 600 ? true : window.innerWidth <= 900
+      }
+      let frame = 0
+      const mark = () => {
+        if (!isNarrow()) return
+        const candidates = document.querySelectorAll('button:not([data-dmb-icon])')
+        for (const button of candidates) {
+          const rect = button.getBoundingClientRect()
+          // 图标按钮：小尺寸 + 含 svg；超窄按钮（如 toast 关闭）即使没 svg 也要保方。
+          const iconLike = button.querySelector('svg') !== null && rect.width <= 48
+          const tiny = rect.width > 0 && rect.width < 24
+          if (!iconLike && !tiny) continue
+          button.setAttribute('data-dmb-icon', '')
+          if (tiny) button.setAttribute('data-dmb-tiny', '')
+        }
+      }
+      const schedule = () => {
+        if (frame !== 0) return
+        frame = window.requestAnimationFrame(() => {
+          frame = 0
+          mark()
+        })
+      }
+      new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true })
+      schedule()
     }
 
     function apply(ctx) {
       if (typeof document === 'undefined') return
       ensureStyle()
       installSettingsNav()
+      installIconButtonFix()
       // 先回执再注册：这样即使 slot 注册失败，宿主也能观测到「半身确实执行到了哪一步」。
       const slots = ctx?.slots ?? (typeof ctx?.get === 'function' ? ctx.get('slots') : undefined)
       if (slots === undefined || slots === null) {
