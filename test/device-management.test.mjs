@@ -152,6 +152,7 @@ try {
   assert.match(clientText, /\/devices\/revoke-all/)
   assert.match(clientText, /\/devices\/purge/)
   assert.match(clientText, /devicesTitle/)
+  assert.match(clientText, /devicesLoadError/)
   pass('client.js wires device management endpoints')
 
   console.log(`\n${passed} checks passed`)

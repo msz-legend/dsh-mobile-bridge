@@ -76,6 +76,9 @@ window.__ModuleLoader__.load({
       deviceDesktopOnly: ZH
         ? '设备管理仅可在桌面端（本机）操作。'
         : 'Device management is only available on the desktop.',
+      devicesLoadError: ZH
+        ? '设备列表加载失败：请刷新页面；若仍失败，说明桌面插件未加载最新版本，请重启 DSH Desktop 后再试。'
+        : 'Failed to load devices. Refresh; if it persists, restart DSH Desktop so the plugin loads the latest version.',
       clientLoaded: ZH ? '手机端已加载' : 'Client half loaded',
       refresh: ZH ? '刷新' : 'Refresh',
       tunnel: ZH ? '公网隧道' : 'Tunnel',
@@ -474,6 +477,7 @@ html[data-dmb-narrow="1"][data-dmb-sidebar-open="1"] [class*="_frame"]{
 
     function useDevices(enabled) {
       const [data, setData] = react.useState({ devices: [], online: [], maxDevices: undefined })
+      const [error, setError] = react.useState(false)
       const [nonce, setNonce] = react.useState(0)
       const reload = () => setNonce((value) => value + 1)
       react.useEffect(() => {
@@ -481,9 +485,17 @@ html[data-dmb-narrow="1"][data-dmb-sidebar-open="1"] [class*="_frame"]{
         let alive = true
         const load = () => {
           fetch(BASE + '/devices.json', { credentials: 'same-origin' })
-            .then((response) => (response.ok ? response.json() : undefined))
+            .then((response) => {
+              if (response.ok !== true) {
+                // 宿主未加载最新路由（旧进程）或网络异常时，明确报错而不是静默显示「暂无设备」。
+                if (alive) setError(true)
+                return undefined
+              }
+              return response.json()
+            })
             .then((json) => {
               if (alive && json?.ok === true) {
+                setError(false)
                 setData({
                   devices: Array.isArray(json.devices) ? json.devices : [],
                   online: Array.isArray(json.online) ? json.online : [],
@@ -491,7 +503,9 @@ html[data-dmb-narrow="1"][data-dmb-sidebar-open="1"] [class*="_frame"]{
                 })
               }
             })
-            .catch(() => undefined)
+            .catch(() => {
+              if (alive) setError(true)
+            })
         }
         load()
         const timer = setInterval(load, 5000)
@@ -500,7 +514,7 @@ html[data-dmb-narrow="1"][data-dmb-sidebar-open="1"] [class*="_frame"]{
           clearInterval(timer)
         }
       }, [enabled, nonce])
-      return { ...data, reload }
+      return { ...data, error, reload }
     }
 
     const pad2 = (value) => String(value).padStart(2, '0')
@@ -512,7 +526,7 @@ html[data-dmb-narrow="1"][data-dmb-sidebar-open="1"] [class*="_frame"]{
 
     /** 设备列表与撤销操作：仅桌面端渲染。 */
     function DeviceManager() {
-      const { devices, online, reload } = useDevices(true)
+      const { devices, online, error, reload } = useDevices(true)
       const [busy, setBusy] = react.useState('')
 
       const act = (key, path, body, question) => {
@@ -539,7 +553,8 @@ html[data-dmb-narrow="1"][data-dmb-sidebar-open="1"] [class*="_frame"]{
         'div',
         { className: 'dmb-devices' },
         h('div', { className: 'dmb-devices-title' }, T.devicesTitle),
-        devices.length === 0
+        error ? h('div', { className: 'dmb-muted' }, T.devicesLoadError) : null,
+        devices.length === 0 && error !== true
           ? h('div', { className: 'dmb-muted' }, T.noDevices)
           : devices.map((device) => {
               const isRevoked = device.revoked === true
