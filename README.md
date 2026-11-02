@@ -89,14 +89,24 @@ plugin_manager action=install_bundle target=<本目录绝对路径>
 
 ### 5. 撤销与查看
 
+**桌面端图形界面**：DSH 设置 →「手机桥接」里直接「设备管理」——列出所有已绑定设备（名称、在线/离线、绑定时间、最近活跃），可逐台「撤销」、一键「全部撤销」，或「清除已撤销记录」清理历史旧设备。撤销即时生效，已连接的手机立刻断开、令牌作废，需重新配对。
+
+命令行 / 脚本同样可用（均 loopback-only，仅本机可调）：
+
 ```sh
 # 查看设备与在线状态（仅本机可读）
-curl http://127.0.0.1:<端口>/plugins/dsh-mobile-bridge/status
+curl http://127.0.0.1:<端口>/plugins/dsh-mobile-bridge/devices.json
 
 # 撤销某台设备（立即生效）
 curl -X POST -H 'content-type: application/json' \
   -d '{"deviceId":"dev_xxx"}' \
   http://127.0.0.1:<端口>/plugins/dsh-mobile-bridge/devices/revoke
+
+# 撤销全部设备
+curl -X POST http://127.0.0.1:<端口>/plugins/dsh-mobile-bridge/devices/revoke-all
+
+# 清除已撤销的历史记录
+curl -X POST http://127.0.0.1:<端口>/plugins/dsh-mobile-bridge/devices/purge
 ```
 
 ## 安全说明

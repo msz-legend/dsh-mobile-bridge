@@ -54,6 +54,28 @@ window.__ModuleLoader__.load({
       pairCode: ZH ? '生成配对码' : 'New pairing code',
       pairHint: ZH ? '用手机扫描二维码，或打开地址后输入配对码。' : 'Scan the QR code, or open the URL and enter the code.',
       desktopOnly: ZH ? '仅在桌面端（本机）可生成配对码。' : 'Pairing codes can only be created on the desktop.',
+      devicesTitle: ZH ? '设备管理' : 'Device management',
+      deviceOnline: ZH ? '在线' : 'Online',
+      deviceOffline: ZH ? '离线' : 'Offline',
+      deviceRevoked: ZH ? '已撤销' : 'Revoked',
+      boundAt: ZH ? '绑定于' : 'Bound',
+      lastSeen: ZH ? '最近活跃' : 'Last seen',
+      revoke: ZH ? '撤销' : 'Revoke',
+      revokeAll: ZH ? '全部撤销' : 'Revoke all',
+      purgeRevoked: ZH ? '清除已撤销记录' : 'Clear revoked',
+      confirmRevoke: ZH
+        ? '确认撤销该设备？撤销后该手机需要重新配对才能接入。'
+        : 'Revoke this device? It must re-pair to connect again.',
+      confirmRevokeAll: ZH
+        ? '确认撤销全部设备？所有已配对的手机都会立即断开。'
+        : 'Revoke all devices? Every paired phone disconnects immediately.',
+      confirmPurge: ZH
+        ? '清除全部已撤销记录？此操作不可撤销（不影响当前在用设备）。'
+        : 'Clear all revoked records? This cannot be undone (active devices unaffected).',
+      noDevices: ZH ? '暂无已绑定设备。' : 'No bound devices yet.',
+      deviceDesktopOnly: ZH
+        ? '设备管理仅可在桌面端（本机）操作。'
+        : 'Device management is only available on the desktop.',
       clientLoaded: ZH ? '手机端已加载' : 'Client half loaded',
       refresh: ZH ? '刷新' : 'Refresh',
       tunnel: ZH ? '公网隧道' : 'Tunnel',
@@ -103,6 +125,21 @@ window.__ModuleLoader__.load({
 .dmb-addr{word-break:break-all;overflow-wrap:anywhere;font:12px/1.5 ui-monospace,Consolas,monospace;background:rgba(127,127,127,.08);padding:8px 10px;border-radius:8px;margin:8px 0;max-width:100%;box-sizing:border-box}
 .dmb-qr{display:block;width:100%;max-width:220px;margin:10px auto;border-radius:10px;background:#fff;padding:6px;box-sizing:border-box}
 .dmb-settings .dmb-btn{margin-top:8px;width:100%;max-width:100%;box-sizing:border-box}
+.dmb-devices{margin-top:16px;border-top:1px solid rgba(127,127,127,.25);padding-top:14px}
+.dmb-devices-title{font-weight:600;font-size:13px;margin-bottom:8px}
+.dmb-device{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;border:1px solid rgba(127,127,127,.25);
+  border-radius:12px;padding:10px 12px;background:rgba(127,127,127,.05);min-width:0;overflow-wrap:anywhere;margin-bottom:8px}
+.dmb-device-main{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 160px}
+.dmb-device-name{font-weight:600;overflow-wrap:anywhere}
+.dmb-device-meta{font-size:12px;color:var(--dsw-alias-label-tertiary,#666);overflow-wrap:anywhere}
+.dmb-device-status{display:inline-block;font-size:11px;font-weight:600;line-height:1.5;padding:1px 8px;
+  border-radius:999px;border:1px solid rgba(127,127,127,.35);color:var(--dsw-alias-label-tertiary,#666);white-space:nowrap}
+.dmb-device-status.on,.dmb-device-status--on{color:#047857;border-color:#a7f3d0;background:#ecfdf5}
+.dmb-device-status.off,.dmb-device-status--off{color:#6b7280;border-color:#d1d5db;background:#f3f4f6}
+.dmb-device-status.revoked,.dmb-device-status--revoked{color:#b91c1c;border-color:#fecdd3;background:#fff1f2}
+.dmb-device-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-left:auto}
+.dmb-device-actions .dmb-btn,.dmb-settings .dmb-device-actions .dmb-btn{width:auto;max-width:none;margin-top:0;padding:6px 10px;min-height:32px;font-size:13px}
+@media (max-width:420px){.dmb-device-actions{margin-left:0;width:100%}}
 /* 窄屏设置抽屉：改成「列表 → 详情」两级导航（逻辑见 installSettingsNav）。
    宿主的设置抽屉是「左导航 + 右内容」双栏固定布局，360dp 下导航吃掉大半宽度、
    内容只剩一点点，文字叠在一起。窄屏下这里改为：
@@ -140,14 +177,18 @@ button[data-dmb-icon][data-dmb-tiny]{min-width:24px !important;min-height:24px !
 .dmb-banner span{flex:1 1 auto;min-width:0}
 .dmb-banner-btn{flex:0 0 auto;min-height:32px;padding:0 12px;border-radius:8px;border:1px solid rgba(255,255,255,.4);
   background:rgba(255,255,255,.14);color:inherit;font:600 13px/1 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
-/* 窄屏侧栏浮层：宿主是桌面双栏布局，侧栏展开时占 ~280px，360dp 下主内容只剩几十像素。
-   窄屏下把展开的侧栏改成浮层（脱离文档流），并把外层 grid 的第一列收成 0，
-   主内容即可拿回全宽；侧栏自身的收起按钮照常可用。 */
+/* 窄屏侧栏：宿主是桌面双栏布局，侧栏展开时占 ~280px，360dp 下主内容只剩几十像素。
+   收起态（默认态）是 56px 细条，留在宿主 grid 流里即可，不能 fixed 也不能带
+   全屏 scrim（否则右侧主会话窗口永远蒙灰）；只有展开态才改成浮层 + 全屏遮罩。
+   展开态打在宿主侧栏根上的 data-dmb-overlay 由 installSidebarState 维护：
+   宿主新版把展开根的 _quietBars/_collapsed 类都摘掉了，旧的类名选择器打不到展开态。 */
 html[data-dmb-narrow="1"] [class*="_root"][class*="_quietBars"]{
-  position:fixed !important;left:0;top:0;bottom:0;z-index:2147481900 !important;
+  overflow-y:auto;overscroll-behavior:contain}
+html[data-dmb-narrow="1"] [data-dmb-overlay]{
+  position:fixed !important;left:0;top:0;bottom:0;z-index:1050 !important;
   box-shadow:0 0 0 100vmax rgba(0,0,0,.42), 0 18px 40px rgba(0,0,0,.3);
   overflow-y:auto;overscroll-behavior:contain}
-html[data-dmb-narrow="1"][data-dmb-sidebar="expanded"] [class*="_frame"]{
+html[data-dmb-narrow="1"][data-dmb-sidebar-open="1"] [class*="_frame"]{
   grid-template-columns:0px minmax(0,1fr) 0px !important}
 `
 
@@ -431,6 +472,153 @@ html[data-dmb-narrow="1"][data-dmb-sidebar="expanded"] [class*="_frame"]{
       return data
     }
 
+    function useDevices(enabled) {
+      const [data, setData] = react.useState({ devices: [], online: [], maxDevices: undefined })
+      const [nonce, setNonce] = react.useState(0)
+      const reload = () => setNonce((value) => value + 1)
+      react.useEffect(() => {
+        if (enabled !== true) return undefined
+        let alive = true
+        const load = () => {
+          fetch(BASE + '/devices.json', { credentials: 'same-origin' })
+            .then((response) => (response.ok ? response.json() : undefined))
+            .then((json) => {
+              if (alive && json?.ok === true) {
+                setData({
+                  devices: Array.isArray(json.devices) ? json.devices : [],
+                  online: Array.isArray(json.online) ? json.online : [],
+                  maxDevices: json.maxDevices,
+                })
+              }
+            })
+            .catch(() => undefined)
+        }
+        load()
+        const timer = setInterval(load, 5000)
+        return () => {
+          alive = false
+          clearInterval(timer)
+        }
+      }, [enabled, nonce])
+      return { ...data, reload }
+    }
+
+    const pad2 = (value) => String(value).padStart(2, '0')
+    const shortTime = (ms) => {
+      const date = new Date(ms)
+      if (!Number.isFinite(Number(ms)) || Number.isNaN(date.getTime())) return '—'
+      return `${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`
+    }
+
+    /** 设备列表与撤销操作：仅桌面端渲染。 */
+    function DeviceManager() {
+      const { devices, online, reload } = useDevices(true)
+      const [busy, setBusy] = react.useState('')
+
+      const act = (key, path, body, question) => {
+        if (busy !== '') return
+        if (window.confirm(question) !== true) return
+        setBusy(key)
+        fetch(BASE + path, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body ?? {}),
+        })
+          .then((response) => {
+            if (response.ok) reload()
+          })
+          .catch(() => undefined)
+          .finally(() => setBusy(''))
+      }
+
+      const active = devices.filter((device) => device.revoked !== true)
+      const revoked = devices.filter((device) => device.revoked === true)
+
+      return h(
+        'div',
+        { className: 'dmb-devices' },
+        h('div', { className: 'dmb-devices-title' }, T.devicesTitle),
+        devices.length === 0
+          ? h('div', { className: 'dmb-muted' }, T.noDevices)
+          : devices.map((device) => {
+              const isRevoked = device.revoked === true
+              const status = isRevoked
+                ? { className: 'revoked', label: T.deviceRevoked }
+                : online.includes(device.deviceId)
+                  ? { className: 'on', label: T.deviceOnline }
+                  : { className: 'off', label: T.deviceOffline }
+              const id = String(device.deviceId ?? '')
+              return h(
+                'div',
+                { className: 'dmb-device', key: id },
+                h(
+                  'div',
+                  { className: 'dmb-device-main' },
+                  h('div', { className: 'dmb-device-name' }, device.name || 'phone'),
+                  h('div', { className: 'dmb-device-meta' }, id.length > 10 ? `${id.slice(0, 10)}…` : id),
+                  h('div', { className: 'dmb-device-meta' }, `${T.boundAt} ${shortTime(device.createdAt)}`),
+                  h('div', { className: 'dmb-device-meta' }, `${T.lastSeen} ${shortTime(device.lastSeen)}`),
+                ),
+                h(
+                  'span',
+                  { className: `dmb-device-status dmb-device-status--${status.className}` },
+                  status.label,
+                ),
+                isRevoked
+                  ? null
+                  : h(
+                      'div',
+                      { className: 'dmb-device-actions' },
+                      h(
+                        'button',
+                        {
+                          type: 'button',
+                          className: 'dmb-btn danger',
+                          disabled: busy !== '',
+                          onClick: () =>
+                            act(`revoke:${id}`, '/devices/revoke', { deviceId: id }, T.confirmRevoke),
+                        },
+                        T.revoke,
+                      ),
+                    ),
+              )
+            }),
+        active.length > 0
+          ? h(
+              'div',
+              { className: 'dmb-device-actions' },
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dmb-btn danger',
+                  disabled: busy !== '',
+                  onClick: () => act('revoke-all', '/devices/revoke-all', {}, T.confirmRevokeAll),
+                },
+                T.revokeAll,
+              ),
+            )
+          : null,
+        revoked.length > 0
+          ? h(
+              'div',
+              { className: 'dmb-device-actions' },
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dmb-btn',
+                  disabled: busy !== '',
+                  onClick: () => act('purge', '/devices/purge', {}, T.confirmPurge),
+                },
+                T.purgeRevoked,
+              ),
+            )
+          : null,
+      )
+    }
+
     function Cell(props) {
       return h('div', { className: 'dmb-cell' }, props.label, h('b', null, props.value))
     }
@@ -503,8 +691,14 @@ html[data-dmb-narrow="1"][data-dmb-sidebar="expanded"] [class*="_frame"]{
                     h('div', { className: 'dmb-addr' }, pairing.code),
                   )
                 : null,
+              h(DeviceManager, null),
             )
-          : h('div', { className: 'dmb-muted' }, T.desktopOnly),
+          : h(
+              'div',
+              null,
+              h('div', { className: 'dmb-muted' }, T.desktopOnly),
+              h('div', { className: 'dmb-muted' }, T.deviceDesktopOnly),
+            ),
       )
     }
 
@@ -614,6 +808,15 @@ html[data-dmb-narrow="1"][data-dmb-sidebar="expanded"] [class*="_frame"]{
         root.setAttribute('data-dmb-mode', 'list')
         nav.setAttribute('data-dmb-nav', '')
         content.setAttribute('data-dmb-content', '')
+        // 设置抽屉打开时自动收起侧栏浮层：不做 z-index 硬压，直接关掉侧栏，
+        // 让抽屉右侧只剩主会话窗口、不残留全屏 scrim。抽屉关闭时不重新展开。
+        if (document.documentElement.getAttribute('data-dmb-sidebar-open') === '1') {
+          const sidebarRoot = document.querySelector('[data-dmb-overlay]')
+          const toggle =
+            (sidebarRoot && sidebarRoot.querySelector('[class*="_iconButton"][class*="_toggle"]')) ||
+            (sidebarRoot && sidebarRoot.querySelector('button[aria-label*="收起"]'))
+          if (toggle) toggle.click()
+        }
         if (back === undefined) {
           back = document.createElement('button')
           back.type = 'button'
@@ -677,7 +880,30 @@ html[data-dmb-narrow="1"][data-dmb-sidebar="expanded"] [class*="_frame"]{
         return screenWidth > 0 && screenWidth <= 600 ? true : window.innerWidth <= 900
       }
       let frame = 0
+      // 分裂按钮组的半边（如插件页「添加插件」的下拉触发钮）：宿主给一侧
+      // 圆角置 0（如 12px 0 0 12px / 0 12px 12px 0），与另一半拼成一个整体，
+      // 高度必须跟主按钮走（40px）。这类按钮即使小而含 svg 也不能强制
+      // aspect-ratio:1 —— 否则缩成 32×32 小黑块，与主按钮高度错位。
+      const isSplitSegment = (button) => {
+        const corners = getComputedStyle(button).borderRadius.split(/\s+/).filter((token) => token !== '')
+        // 四角既有直角又有圆角 → 这是分裂按钮组的半边（与另一半拼成完整圆角）
+        const hasSquare = corners.some((token) => parseFloat(token) === 0)
+        const hasRound = corners.some((token) => parseFloat(token) > 0)
+        return hasSquare && hasRound
+      }
       const mark = () => {
+        // 双向再评估：已打标的按钮宽度变化（如收起 rail 36px 的按钮被展开的
+        // 侧栏撑到 252px）后必须撤销标记，否则 aspect-ratio:1 把文字按钮
+        // 撑成正方形巨块、把会话列表挤出视口。
+        for (const button of document.querySelectorAll('button[data-dmb-icon]')) {
+          const rect = button.getBoundingClientRect()
+          if (rect.width > 48 || isSplitSegment(button)) {
+            button.removeAttribute('data-dmb-icon')
+            button.removeAttribute('data-dmb-tiny')
+          } else if (rect.width >= 24 && button.hasAttribute('data-dmb-tiny')) {
+            button.removeAttribute('data-dmb-tiny')
+          }
+        }
         if (!isNarrow()) return
         const candidates = document.querySelectorAll('button:not([data-dmb-icon])')
         for (const button of candidates) {
@@ -685,7 +911,7 @@ html[data-dmb-narrow="1"][data-dmb-sidebar="expanded"] [class*="_frame"]{
           // 图标按钮：小尺寸 + 含 svg；超窄按钮（如 toast 关闭）即使没 svg 也要保方。
           const iconLike = button.querySelector('svg') !== null && rect.width <= 48
           const tiny = rect.width > 0 && rect.width < 24
-          if (!iconLike && !tiny) continue
+          if ((!iconLike && !tiny) || isSplitSegment(button)) continue
           button.setAttribute('data-dmb-icon', '')
           if (tiny) button.setAttribute('data-dmb-tiny', '')
         }
@@ -697,6 +923,14 @@ html[data-dmb-narrow="1"][data-dmb-sidebar="expanded"] [class*="_frame"]{
           mark()
         })
       }
+      // 侧栏展开/收起是 CSS 过渡，MutationObserver 只能看到 DOM 变更，
+      // 点击后再补两次延迟复查，确保最终宽度对应的标记被写入/撤销。
+      const scheduleSettled = () => {
+        schedule()
+        window.setTimeout(mark, 120)
+        window.setTimeout(mark, 520)
+      }
+      document.addEventListener('click', scheduleSettled, true)
       new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true })
       schedule()
     }
@@ -829,10 +1063,60 @@ html[data-dmb-narrow="1"][data-dmb-sidebar="expanded"] [class*="_frame"]{
       apply()
     }
 
+    /**
+     * 侧栏展开态信号。
+     *
+     * 宿主新版在展开态把侧栏根上的 _quietBars/_collapsed 类都摘掉，只剩 _root，
+     * installNarrowFlag 的「_quietBars 根宽度 > 150」判定因此永远看不到展开态。
+     * 这里独立维护同一份信号：html[data-dmb-sidebar-open] 供 CSS 使用，
+     * 展开根上的 data-dmb-overlay 让浮层/scrim 规则精确命中展开根。
+     * 不改 installNarrowFlag 的判定逻辑，两边互不干扰。
+     */
+    function installSidebarState() {
+      if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return
+      let frame = 0
+      const apply = () => {
+        const html = document.documentElement
+        if (html === null) return
+        const column = document.querySelector('[class*="_sidebarCol"]')
+        const roots = column === null ? [] : [...column.querySelectorAll('[class*="_root"]')]
+        // 侧栏面板内部还有嵌套的 _root，取不被其他 _root 包含的最外层那个。
+        const outer = roots.find((node) => !roots.some((other) => other !== node && other.contains(node)))
+        const expanded = outer !== undefined && outer.getBoundingClientRect().width > 150
+        if (expanded) {
+          outer.setAttribute('data-dmb-overlay', '')
+          html.setAttribute('data-dmb-sidebar-open', '1')
+        } else {
+          document.querySelectorAll('[data-dmb-overlay]').forEach((node) => node.removeAttribute('data-dmb-overlay'))
+          html.removeAttribute('data-dmb-sidebar-open')
+        }
+      }
+      const schedule = () => {
+        if (frame !== 0) return
+        frame = window.requestAnimationFrame(() => {
+          frame = 0
+          apply()
+        })
+      }
+      // 展开/收起是 CSS 过渡，点击后补两次延迟复查，覆盖 MutationObserver
+      // 只看到中间态的情况（同 installNarrowFlag 的做法）。
+      const scheduleSettled = () => {
+        schedule()
+        window.setTimeout(apply, 120)
+        window.setTimeout(apply, 520)
+      }
+      document.addEventListener('click', scheduleSettled, true)
+      window.addEventListener('resize', schedule, { passive: true })
+      window.addEventListener('orientationchange', schedule, { passive: true })
+      new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true })
+      apply()
+    }
+
     function apply(ctx) {
       if (typeof document === 'undefined') return
       ensureStyle()
       installNarrowFlag()
+      installSidebarState()
       installTransportResilience()
       installSettingsNav()
       installIconButtonFix()
