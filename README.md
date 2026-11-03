@@ -1,6 +1,24 @@
 # DSH Mobile Bridge
 
+<p align="center">
+  <img src="icon.svg" width="72" alt="DSH Mobile Bridge logo" />
+</p>
+
 > 用手机浏览器安全接入本机 **DSH Desktop** —— 扫码即用，复用桌面同一套 Web UI。
+>
+> [English](./README.en.md) | 中文
+
+<p align="center">
+  <img src="docs/screenshots/cover.png" width="420" alt="手机远程接入 DSH Desktop：扫码配对 · 流式输出 · 工具审批" />
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-green" /></a>
+  <img alt="Node &gt;= 22" src="https://img.shields.io/badge/node-%E2%89%A522-blue" />
+  <a href="https://github.com/msz-legend/dsh-mobile-bridge/stargazers"><img alt="GitHub Stars" src="https://img.shields.io/github/stars/msz-legend/dsh-mobile-bridge?style=social" /></a>
+</p>
+
+**30 秒跑通**：把本目录作为 bundle 装进 DSH Desktop（`plugin_manager action=install_bundle target=<本目录绝对路径>`）→ 重启 Desktop 自动拉起临时隧道 → 桌面「设置 → 手机桥接」生成配对码 → 手机扫码即用。想要「重启后地址不变」的固定入口，见 [§6 固定地址](#六固定地址--稳定入口解决重启后-cloudflare-报错旧截图失效)。
 
 DSH Desktop 的 Web 界面只监听 `127.0.0.1`，手机无法直接访问。本插件在两者之间加一道**边缘网关（edge）**：
 手机通过它加载的仍然是桌面上那份 Web UI（同源 WebSocket、同源 RPC、流式输出全部原样复用），
@@ -248,6 +266,12 @@ lib/tunnel.js          对外地址探测（含 Tailscale / LAN）
 lib/events.js          设备在线状态 + SSE 推送总线
 lib/index-inject.js    移动端注入（viewport / polyfill / PWA）
 ```
+
+## 反馈与社区
+
+- 🐛 Bug / 功能建议：[Issues](https://github.com/msz-legend/dsh-mobile-bridge/issues)
+- 💬 使用交流 / 想法讨论：[Discussions](https://github.com/msz-legend/dsh-mobile-bridge/discussions)
+- 🔒 安全问题（配对、令牌、隧道）：请直接提 Issue 并注明「security」，或先私信作者，**不要公开贴出你的隧道地址与 token**。
 
 ## License
 
