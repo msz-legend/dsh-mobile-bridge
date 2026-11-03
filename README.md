@@ -44,6 +44,11 @@ DSH Desktop 的 Web 界面只监听 `127.0.0.1`，手机无法直接访问。本
 - **固定地址**：可把对外地址固定为一个稳定入口（Tailscale 私网 IP、Tailscale Serve/Funnel、Cloudflare 命名隧道），
   从而**重启后地址不变、保存的配对二维码/截图长期可用**，不再出现「刷新看到 Cloudflare 报错」。
 
+### 开箱即用 vs 固定地址（BYO 域名）
+- **开箱即用（零配置）**：从 GitHub 安装后，插件自动拉起 Cloudflare quick 临时隧道，立即可用；局域网、配对码/二维码、设备管理、工具审批等全部开箱即用。临时隧道的地址随机、重启会变——适合先跑起来。
+- **固定地址需各人自带（BYO）**：形如 `https://dsh.你的域名` 的永久入口，绑定的是**你自己的 Cloudflare 账号 + 你申请的域名 + 你本机的隧道 token**（token 只存本地 `tunnel.json`，不进仓库），无法由他人代为配置，也不应共享凭据。
+- **拿到自己的固定地址**：走免费域名（[EU.org](https://nic.eu.org) / [us.kg（DigitalPlat FreeDomain）](https://dash.domain.digitalplat.org/)）+ 免费 Cloudflare + 命名隧道，在设置页「保存并启用 + 注册为系统服务」两键即可，人人自助，无需改动仓库。
+
 ---
 
 ## 二、快速开始
