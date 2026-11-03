@@ -715,7 +715,7 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
                   data.tunnel.running === true ? data.tunnel.url || T.tunnelStarting : T.tunnelDown
                 }`,
               ),
-              data?.tunnel?.mode === 'token'
+              data?.tunnel?.mode === 'token' || !/trycloudflare\.com/i.test(String(data?.publicBase ?? ''))
                 ? h('div', { className: 'dmb-muted' }, T.addressFixed)
                 : h('div', { className: 'dmb-muted' }, T.addressTemporary),
             )
