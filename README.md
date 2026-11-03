@@ -109,6 +109,31 @@ curl -X POST http://127.0.0.1:<端口>/plugins/dsh-mobile-bridge/devices/revoke-
 curl -X POST http://127.0.0.1:<端口>/plugins/dsh-mobile-bridge/devices/purge
 ```
 
+### 6. 稳定公网入口（解决「重启后 Cloudflare 报错 / 旧截图失效」）
+
+quick 隧道的 `https://<随机>.trycloudflare.com` **每次重启都会变**：手机收藏/PWA 里的旧地址会指向已失效的隧道 → 刷新就看到 Cloudflare 1033/530「连不上」页面，旧配对二维码/截图也随之失效。
+
+要让「地址固定、截图长期可扫」，需要一个稳定域名。按是否有账号，二选一：
+
+**A. Tailscale（推荐，免费，无需 Cloudflare）** —— 固定 `https://<机器>.<tailnet>.ts.net`
+
+1. 电脑安装并登录 Tailscale（免费个人版）：`winget install Tailscale.Tailscale`，然后 `tailscale up` 完成登录。
+2. 公网访问（手机免装 App）用 Funnel：`tailscale funnel --bg 8787`（首次需在 Tailscale 管理后台开启 Funnel）；仅自己设备用 `tailscale serve --bg 8787`。
+3. 插件会自动识别该 `*.ts.net` 地址作为 publicBase（`lib/tunnel.js` 的 `detectTailscale()`），无需改配置；地址永久固定 → 二维码/截图长期有效。
+
+**B. Cloudflare 命名隧道（有 Cloudflare 账号 + 域名时，可选）**
+
+1. Zero Trust → Networks → Tunnels → 新建隧道（cloudflared），复制**连接器 token**；添加 Public Hostname：`dsh.example.com` → `http://127.0.0.1:8787`。
+2. 本机写机密文件（token 绝不进仓库），权限 0600：`C:\Users\<你>\.dsh\dsh-mobile-bridge\tunnel.json`
+   ```json
+   { "token": "<命名隧道连接器 token>", "publicBase": "https://dsh.example.com" }
+   ```
+3. 配置 `tunnelEnabled: true`、`tunnelMode: 'token'`（`tunnelToken`/`publicBase` 留空会自动读上面的文件），重启 Desktop。
+
+稳定性：插件会对 quick 隧道做**健康探测**——进程还活着但隧道已死（边缘 1033）时连续失败 3 次即自动重启 cloudflared（叠加指数退避自愈）。
+
+> 安全：固定域名让「截图长期可扫」，但**首次接新设备仍需桌面签发配对码**；已配对设备靠设备 Cookie 持续在线。敏感 token 只放本地文件（0600），勿提交 git。
+
 ## 安全说明
 
 - 经设备令牌进入的浏览器与桌面同属 **owner** 权限，因此**把通道暴露到公网约等于 owner 级远程操作能力**，

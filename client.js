@@ -84,6 +84,12 @@ window.__ModuleLoader__.load({
       tunnel: ZH ? '公网隧道' : 'Tunnel',
       tunnelStarting: ZH ? '启动中…' : 'starting…',
       tunnelDown: ZH ? '未运行' : 'not running',
+      addressFixed: ZH
+        ? '固定地址：重启/掉线后不变，可保存二维码长期使用。'
+        : 'Fixed address: stable across restarts — safe to save this QR.',
+      addressTemporary: ZH
+        ? '临时地址：每次重启会变，换地址后需重新扫码。建议改用固定域名隧道。'
+        : 'Temporary address: changes on restart — re-scan needed. A fixed-domain tunnel is recommended.',
       pairRequestTitle: ZH ? '配对请求' : 'Pairing request',
       pairRequestBody: ZH ? '有一台设备通过配对码请求接入。' : 'A device is asking to pair with a valid code.',
       pairFrom: ZH ? '来源' : 'from',
@@ -673,10 +679,17 @@ html[data-dmb-narrow="1"][data-dmb-sidebar-open="1"] [class*="_frame"]{
         data?.tunnel?.enabled === true
           ? h(
               'div',
-              { className: 'dmb-muted' },
-              `${T.tunnel} · ${
-                data.tunnel.running === true ? data.tunnel.url || T.tunnelStarting : T.tunnelDown
-              }`,
+              null,
+              h(
+                'div',
+                { className: 'dmb-muted' },
+                `${T.tunnel} · ${
+                  data.tunnel.running === true ? data.tunnel.url || T.tunnelStarting : T.tunnelDown
+                }`,
+              ),
+              data?.tunnel?.mode === 'token'
+                ? h('div', { className: 'dmb-muted' }, T.addressFixed)
+                : h('div', { className: 'dmb-muted' }, T.addressTemporary),
             )
           : null,
         h(

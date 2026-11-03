@@ -10,6 +10,7 @@
  * 不导出 Config：避免依赖 schemastery 的模块解析，插件在任何 profile 组合下都能加载。
  * 配置由 cordis.patch.yml 的 config 传入，本文件内做默认值归一化。
  */
+import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -44,6 +45,7 @@ const DEFAULTS = {
   approvalTimeoutRemoteMs: 30_000,
   offlineGraceMs: 5_000,
   pairConfirmTtlMs: 2 * 60_000,
+  autoApprovePairing: false,
   alwaysScope: 'session',
   maxDevices: 5,
   enableLan: true,
@@ -73,6 +75,7 @@ function normalize(raw) {
   config.approvalTimeoutRemoteMs = asPositiveInt(input.approvalTimeoutRemoteMs, DEFAULTS.approvalTimeoutRemoteMs)
   config.offlineGraceMs = asPositiveInt(input.offlineGraceMs, DEFAULTS.offlineGraceMs)
   config.pairConfirmTtlMs = asPositiveInt(input.pairConfirmTtlMs, DEFAULTS.pairConfirmTtlMs)
+  config.autoApprovePairing = input.autoApprovePairing === true
   config.alwaysScope = input.alwaysScope === 'global' ? 'global' : 'session'
   config.maxDevices = asPositiveInt(input.maxDevices, DEFAULTS.maxDevices)
   config.enableLan = input.enableLan !== false
@@ -86,8 +89,45 @@ function normalize(raw) {
   return config
 }
 
+/**
+ * 读取本地隧道机密（命名隧道 token 与固定域名）。
+ *
+ * 为什么放本地文件而不是配置：token 是敏感凭据，绝不能写进仓库/cordis.patch.yml 被提交。
+ * 文件：<storeDir>/tunnel.json  =>  { "token": "...", "publicBase": "https://dsh.example.com" }
+ * 仅在配置里对应项为空时才采用；读取失败静默（保持 quick/LAN 等既有行为）。
+ */
+function readLocalTunnelConfig(dir) {
+  try {
+    const value = JSON.parse(fs.readFileSync(path.join(dir, 'tunnel.json'), 'utf8'))
+    return value !== null && typeof value === 'object' ? value : {}
+  } catch {
+    return {}
+  }
+}
+
 export function apply(ctx, raw) {
-  const config = normalize(raw)
+  const rawInput = raw !== null && typeof raw === 'object' ? raw : {}
+  const storeDirHint =
+    typeof rawInput.storeDir === 'string' && rawInput.storeDir.trim() !== ''
+      ? rawInput.storeDir.trim()
+      : path.join(os.homedir(), '.dsh', 'dsh-mobile-bridge')
+  const localTunnel = readLocalTunnelConfig(storeDirHint)
+  const merged = { ...rawInput }
+  if (
+    (typeof merged.tunnelToken !== 'string' || merged.tunnelToken.trim() === '') &&
+    typeof localTunnel.token === 'string' &&
+    localTunnel.token.trim() !== ''
+  ) {
+    merged.tunnelToken = localTunnel.token.trim()
+  }
+  if (
+    (typeof merged.publicBase !== 'string' || merged.publicBase.trim() === '') &&
+    typeof localTunnel.publicBase === 'string' &&
+    localTunnel.publicBase.trim() !== ''
+  ) {
+    merged.publicBase = localTunnel.publicBase.trim()
+  }
+  const config = normalize(merged)
   if (!config.enabled) return
 
   const log = (...parts) => {
@@ -132,6 +172,8 @@ export function apply(ctx, raw) {
     config,
     targetPort: config.edgePort,
     log,
+    // 健康看护：token 模式探测固定域名；quick 模式探测解析出的临时地址。
+    healthUrl: () => config.publicBase || tunnel?.url?.(),
     onUrl: (url) => {
       publicBaseCache = undefined
       log(`publicBase switched to tunnel: ${url}`)
