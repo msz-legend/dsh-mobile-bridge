@@ -226,6 +226,11 @@ html[data-dmb-narrow="1"] .wnLwla_footerActions{flex-wrap:wrap!important;gap:8px
 html[data-dmb-narrow="1"] .wnLwla_progress,
 html[data-dmb-narrow="1"] .wnLwla_waitStatus,
 html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
+/* 窄屏收起态 rail 空白处的「› 展开」提示：点击该空白区域即展开左侧功能栏。 */
+.dmb-rail-hint{position:fixed;z-index:1040;left:8px;top:46%;width:40px;display:none;
+  flex-direction:column;align-items:center;gap:2px;color:var(--dsw-alias-label-tertiary,#8a8f98);
+  font-size:10px;line-height:1.2;pointer-events:none;user-select:none}
+.dmb-rail-hint .chev{font-size:20px;line-height:1}
 `
 
     function ensureStyle() {
@@ -1327,11 +1332,81 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
       )
     }
 
+    /**
+     * 窄屏快捷展开左侧功能栏。
+     * 收起态是 56px 图标 rail，空白区域（regionArea 等）原本点不动，只能点顶部鲸鱼开关。
+     * 这里让 rail 的空白区域可点即展开（真实按钮/会话项保持各自行为），并在空白处显示
+     * 一个「› 展开」提示，降低发现成本。
+     */
+    function installRailOpenShortcut() {
+      if (typeof document === 'undefined') return
+      let hint
+      const ensureHint = () => {
+        if (hint !== undefined && hint.isConnected === true) return hint
+        hint = document.createElement('div')
+        hint.className = 'dmb-rail-hint'
+        hint.setAttribute('aria-hidden', 'true')
+        hint.innerHTML = '<span class="chev">\u203a</span><span>\u5c55\u5f00</span>'
+        document.body.appendChild(hint)
+        return hint
+      }
+      const current = () => {
+        const html = document.documentElement
+        if (html.getAttribute('data-dmb-narrow') !== '1') return { show: false }
+        const col = document.querySelector('[class*="_sidebarCol"]')
+        if (col === null) return { show: false }
+        const roots = [...col.querySelectorAll('[class*="_root"]')]
+        const outer = roots.find((node) => !roots.some((other) => other !== node && other.contains(node)))
+        const width = outer === undefined ? 0 : outer.getBoundingClientRect().width
+        return { show: width > 0 && width <= 90, col }
+      }
+      const update = () => {
+        const state = current()
+        const node = ensureHint()
+        node.style.display = state.show === true ? 'flex' : 'none'
+      }
+      const openSidebar = () => {
+        const logo = document.querySelector('[class*="_logoRow"]')
+        const local = logo === null || logo === undefined ? null : logo.querySelector('button[class*="_toggle"]')
+        const toggle =
+          local !== null
+            ? local
+            : [...document.querySelectorAll('button[aria-label]')].find((button) =>
+                /打开侧边栏|open sidebar/i.test(button.getAttribute('aria-label') ?? ''),
+              )
+        if (toggle !== null && toggle !== undefined) toggle.click()
+      }
+      document.addEventListener(
+        'click',
+        (event) => {
+          const state = current()
+          if (state.show !== true) return
+          const target = event.target instanceof Element ? event.target : null
+          if (target === null || state.col === undefined || state.col.contains(target) !== true) return
+          // 真实控件（图标按钮 / 会话项 / 输入等）保持各自行为，不抢点击。
+          if (
+            target.closest('button, a, input, [role="button"], [role="treeitem"], [role="menuitem"], [tabindex]') !==
+            null
+          ) {
+            return
+          }
+          event.preventDefault()
+          event.stopPropagation()
+          openSidebar()
+        },
+        true,
+      )
+      window.addEventListener('resize', update, { passive: true })
+      new MutationObserver(update).observe(document.documentElement, { childList: true, subtree: true })
+      update()
+    }
+
     function apply(ctx) {
       if (typeof document === 'undefined') return
       ensureStyle()
       installNarrowFlag()
       installSidebarState()
+      installRailOpenShortcut()
       installAutoCollapseOnSessionPick()
       installNoAutoKeyboardOnOpen()
       installTransportResilience()
