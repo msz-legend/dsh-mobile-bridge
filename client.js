@@ -1180,12 +1180,88 @@ html[data-dmb-narrow="1"][data-dmb-sidebar-open="1"] [class*="_frame"]{
       )
     }
 
+    /**
+     * 窄屏打开会话时不自动唤起输入法。
+     *
+     * 宿主打开会话后会把 composer（contenteditable 的 [data-composer-input]）自动聚焦，
+     * 移动端浏览器随之弹出软键盘，遮住刚打开的会话，用户还没看清内容就被挡住。
+     * 这里只在「刚点开某个会话」后的短窗口内，把「非用户主动点输入框」而产生的 composer
+     * 聚焦立即失焦；用户主动点输入框（指针落在 composer 内）则照常放行 —— 想打字时键盘即到。
+     * 桌面宽屏不受影响。
+     */
+    function installNoAutoKeyboardOnOpen() {
+      if (typeof document === 'undefined') return
+      const COMPOSER = '[data-composer-input="true"]'
+      let suppressUntil = 0
+      let pointerTarget = null
+      let pointerAt = 0
+      const markPointer = (event) => {
+        pointerTarget = event.target
+        pointerAt = Date.now()
+        const target = event.target instanceof Element ? event.target : null
+        if (target !== null && target.closest(COMPOSER) !== null) suppressUntil = 0 // 用户主动点输入框，撤销抑制
+      }
+      const blurComposer = () => {
+        const el = document.activeElement
+        if (el instanceof Element && el.matches(COMPOSER)) {
+          try {
+            el.blur()
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+      document.addEventListener('pointerdown', markPointer, true)
+      document.addEventListener('touchstart', markPointer, true)
+      document.addEventListener('mousedown', markPointer, true)
+      document.addEventListener(
+        'focusin',
+        (event) => {
+          if (document.documentElement.getAttribute('data-dmb-narrow') !== '1') return
+          if (Date.now() >= suppressUntil) return
+          const el = event.target
+          if (!(el instanceof Element) || !el.matches(COMPOSER)) return
+          const fromComposer =
+            pointerTarget instanceof Element &&
+            (el === pointerTarget || el.contains(pointerTarget)) &&
+            Date.now() - pointerAt < 1500
+          if (fromComposer) return
+          try {
+            el.blur()
+          } catch {
+            /* ignore */
+          }
+        },
+        true,
+      )
+      document.addEventListener(
+        'click',
+        (event) => {
+          if (document.documentElement.getAttribute('data-dmb-narrow') !== '1') return
+          const target = event.target instanceof Element ? event.target : null
+          if (target === null || typeof target.closest !== 'function') return
+          const row = target.closest('[class*="_sessionRow"]')
+          if (row === null) return
+          const control = target.closest('button, a, input, [role="menuitem"], [role="checkbox"]')
+          if (control !== null && row.contains(control)) return
+          // 打开会话这段时间宿主会自动聚焦 composer，在若干时间点逐个清掉。
+          suppressUntil = Date.now() + 2000
+          window.setTimeout(blurComposer, 0)
+          window.setTimeout(blurComposer, 120)
+          window.setTimeout(blurComposer, 350)
+          window.setTimeout(blurComposer, 800)
+        },
+        true,
+      )
+    }
+
     function apply(ctx) {
       if (typeof document === 'undefined') return
       ensureStyle()
       installNarrowFlag()
       installSidebarState()
       installAutoCollapseOnSessionPick()
+      installNoAutoKeyboardOnOpen()
       installTransportResilience()
       installSettingsNav()
       installIconButtonFix()
