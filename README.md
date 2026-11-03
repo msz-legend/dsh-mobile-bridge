@@ -186,6 +186,40 @@ quick 隧道地址是随机的 `https://<random>.trycloudflare.com`，**每次�
 > 稳定性：插件对 quick 隧道做**健康探测**——进程活着但隧道已死时连续失败 3 次自动重启 cloudflared（叠加指数退避），减少掉线。
 > 固定地址让「截图长期可扫」，但**首次接入新设备仍需桌面签发配对码**；已配对设备靠设备 Cookie 持续在线。
 
+### D. 完整实战：0 元拿到永久固定域名 + 开机常驻（实测记录）
+
+下面是 **2026-11 实测跑通**的完整路径，全程免费（域名 + Cloudflare + 隧道 + 系统服务均 0 元），最终得到形如 `https://dshmobile.dpdns.org` 的永久地址，Windows 服务托管隧道、开机自启、与 DSH/Desktop 重启完全解耦。
+
+**① 申请免费域名（DigitalPlat，约 10 分钟）**
+1. 打开 `https://dash.digitalplat.org/` 用邮箱注册，完成**账户验证**（要求 GitHub OAuth，防滥用）。
+2. 域名注册 → DigitalPlat Domains：填前缀（如 `dshmobile`）+ 后缀 → 勾条款 → 检查可用性 → 选「**稍后配置**」（先注册、NS 之后改）→ 注册。
+3. ⚠️ **`.us.kg` 目前暂停向免费账户开放**（提示需订阅计划）；免费可用后缀有 `.dpdns.org` / `.xx.kg` / `.qzz.io` / `.qd.je`，效果等同。免费名额每账户 1 个，域名「正常 · 永久」。
+
+**② 注册 Cloudflare 并添加站点（免费）**
+1. `https://dash.cloudflare.com/sign-up` 注册（可用 GitHub 登录，免邮箱验证）。
+2. 添加站点（Add a site）→ 输入第①步的域名 → 选 **Free** 计划 → DNS 记录扫描为 0 条属正常，直接「继续激活」→ 记下分配的 **2 个 NS**（形如 `xxx.ns.cloudflare.com` / `yyy.ns.cloudflare.com`）。
+
+**③ 回 DigitalPlat 把 NS 改成 Cloudflare 的**
+- 域名详情 → DNS → **域名服务器** → NS1/NS2 填入两个 Cloudflare NS（顺序无关）→ 更名称服务器。
+- 回 Cloudflare 等站点变 **Active**（实测几分钟）。可用 `Resolve-DnsName <你的域名> -Type NS` 验证全球生效。
+
+**④ 建命名隧道 + Public Hostname**
+1. Cloudflare 控制台 → **Zero Trust → Networking → Tunnels → Create Tunnel**，命名（如 `dsh-home`）→ **复制安装命令里的连接器 token**（`eyJ…` 那串；此页不必执行安装）。
+2. 隧道详情 → **Add route → Published application**：Subdomain 留空（用主域）+ Domain 选你的域名 + Service 填 `http://127.0.0.1:8787`（**8787 是插件 edge 端口**，以 `/status` 返回的 `edge.port` 为准；别填桌面 Web 端口）。
+
+**⑤ 插件「两键」接入**
+1. DSH 设置 → 手机桥接 →「Cloudflare 固定域名」卡片：粘贴 token + `https://<你的域名>` → **保存并启用**（先由插件托管跑起来，立即可用）。
+2. 点 **「注册为系统服务（开机常驻）」**：需要管理员权限——插件会触发 UAC/或返回 `needs-admin` 并**自动回退为插件托管**（不断线）。也可手动在管理员 PowerShell 执行
+   `& "C:\Program Files (x86)\cloudflared\cloudflared.exe" service install <token>`，
+   成功后给本地 `tunnel.json` 加上 `"serviceManaged": true` 并重启插件。
+3. 成功标志：卡片显示「系统服务：运行中」；`GET /plugins/dsh-mobile-bridge/cloudflare.json` 返回 `serviceManaged/serviceInstalled/serviceRunning: true`；系统里只剩**服务那 1 个** cloudflared 进程（插件不再自启）。
+
+**⑥ 验证与配对**
+- 任意网络执行 `curl https://<你的域名>/status` 返回 401「pair this device first」＝全链路已通。
+- 手机**关 WiFi 走流量**，扫桌面二维码配对一次即永久有效；之后电脑/DSH 重启、甚至重启整机，手机地址都不变。
+
+> 坑位速查：Public Hostname 的 Service 端口必须是 **8787**（edge 端口）；token 只存本地 `tunnel.json`（0600，不进仓库）；卸载系统服务会自动回退为插件托管；免费域名删除后名额会释放，可重新注册。
+
 ---
 
 ## 七、常见问题（FAQ）
