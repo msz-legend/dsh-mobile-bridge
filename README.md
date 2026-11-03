@@ -38,6 +38,7 @@ DSH Desktop 的 Web 界面只监听 `127.0.0.1`，手机无法直接访问。本
 
 ### 稳定性与固定地址
 - **隧道健康看护**：周期探测公网地址，cloudflared 进程活着但隧道已死（如边缘 1033）时，连续失败自动重启（叠加指数退避）。
+- **Tailscale 一键接入向导**：设置 →「手机桥接」里自动检测 Tailscale 状态，可一键登录、一键开启公网 Funnel、一键把 `https://<机器>.<tailnet>.ts.net` 设为固定地址并生成永久二维码；连不通时提示回退 cloudflared/局域网（仅桌面 loopback 可操作）。
 - **固定地址**：可把对外地址固定为一个稳定入口（Tailscale 私网 IP、Tailscale Serve/Funnel、Cloudflare 命名隧道），
   从而**重启后地址不变、保存的配对二维码/截图长期可用**，不再出现「刷新看到 Cloudflare 报错」。
 

@@ -211,6 +211,11 @@ export function apply(ctx, raw) {
         hostLogin,
         clientHello,
         tunnel,
+        // Tailscale 一键接入：把固定地址立即应用到运行中的 config，并清缓存让二维码即时更新。
+        setPublicBase: (url) => {
+          config.publicBase = typeof url === 'string' ? url : ''
+          publicBaseCache = undefined
+        },
         getEdgeStatus: () => ({
           listening: edge?.isListening?.() === true,
           host: config.edgeHost,

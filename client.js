@@ -90,6 +90,29 @@ window.__ModuleLoader__.load({
       addressTemporary: ZH
         ? '临时地址：每次重启会变，换地址后需重新扫码。建议改用固定域名隧道。'
         : 'Temporary address: changes on restart — re-scan needed. A fixed-domain tunnel is recommended.',
+      tsTitle: ZH ? 'Tailscale 一键接入' : 'Tailscale setup',
+      tsLoading: ZH ? '检测中…' : 'Detecting…',
+      tsNotInstalled: ZH ? '未检测到 Tailscale' : 'Tailscale not installed',
+      tsNotLogged: ZH ? 'Tailscale 已安装，未登录' : 'Tailscale installed, not signed in',
+      tsIpLabel: ZH ? '本机 Tailscale IP' : 'Tailscale IP',
+      tsNameLabel: ZH ? '固定域名' : 'Name',
+      tsFunnelLabel: ZH ? '公网 Funnel' : 'Funnel',
+      tsInstall: ZH ? '一键安装 Tailscale' : 'Install Tailscale',
+      tsLogin: ZH ? '登录 Tailscale' : 'Sign in Tailscale',
+      tsEnableFunnel: ZH ? '开启公网 Funnel' : 'Enable Funnel',
+      tsDisableFunnel: ZH ? '关闭 Funnel' : 'Disable Funnel',
+      tsPin: ZH ? '设为固定地址' : 'Use as fixed address',
+      tsEnableHint: ZH
+        ? '请在浏览器打开下面链接，启用 Funnel 后回来点「刷新」：'
+        : 'Open the link below to enable Funnel, then tap Refresh:',
+      tsLoginHint: ZH ? '请在浏览器打开下面链接完成登录：' : 'Open the link below to sign in:',
+      tsPending: ZH ? '已发起，请在打开的页面完成操作，然后点「刷新」。' : 'Started — finish in the opened page, then Refresh.',
+      tsDone: ZH ? '操作完成。' : 'Done.',
+      tsFail: ZH ? '操作失败，请稍后重试。' : 'Action failed, try again later.',
+      tsPinned: ZH ? '已设为固定地址，二维码已更新。' : 'Fixed address set; QR updated.',
+      tsFallbackHint: ZH
+        ? '连不通时请退回「公网隧道(cloudflared)」或局域网（同 WiFi 直连）。'
+        : 'If unreachable, fall back to the cloudflared tunnel or LAN (same Wi-Fi).',
       pairRequestTitle: ZH ? '配对请求' : 'Pairing request',
       pairRequestBody: ZH ? '有一台设备通过配对码请求接入。' : 'A device is asking to pair with a valid code.',
       pairFrom: ZH ? '来源' : 'from',
@@ -135,6 +158,8 @@ window.__ModuleLoader__.load({
 .dmb-qr{display:block;width:100%;max-width:220px;margin:10px auto;border-radius:10px;background:#fff;padding:6px;box-sizing:border-box}
 .dmb-settings .dmb-btn{margin-top:8px;width:100%;max-width:100%;box-sizing:border-box}
 .dmb-devices{margin-top:16px;border-top:1px solid rgba(127,127,127,.25);padding-top:14px}
+.dmb-ts{margin-top:16px;border-top:1px solid rgba(127,127,127,.25);padding-top:14px}
+.dmb-ts .dmb-device-actions{margin-top:8px;justify-content:flex-start}
 .dmb-devices-title{font-weight:600;font-size:13px;margin-bottom:8px}
 .dmb-device{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;border:1px solid rgba(127,127,127,.25);
   border-radius:12px;padding:10px 12px;background:rgba(127,127,127,.05);min-width:0;overflow-wrap:anywhere;margin-bottom:8px}
@@ -672,6 +697,125 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
       )
     }
 
+    /** Tailscale 一键接入卡片（仅桌面 loopback）：检测状态 + 一键登录/开 Funnel + 固定地址。 */
+    function TailscaleCard() {
+      ensureStyle()
+      const [st, setSt] = react.useState(undefined)
+      const [busy, setBusy] = react.useState('')
+      const [msg, setMsg] = react.useState(undefined)
+      const load = () => {
+        fetch(BASE + '/tailscale.json', { credentials: 'same-origin' })
+          .then((r) => (r.ok ? r.json() : undefined))
+          .then((j) => {
+            if (j && j.ok === true) setSt(j)
+          })
+          .catch(() => undefined)
+      }
+      react.useEffect(() => {
+        load()
+      }, [])
+      const act = (action) => {
+        if (busy !== '') return
+        setBusy(action)
+        setMsg(undefined)
+        fetch(BASE + '/tailscale/action', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ action }),
+        })
+          .then((r) => r.json())
+          .then((j) => {
+            setBusy('')
+            if (j && j.needEnable && j.enableUrl) setMsg({ text: T.tsEnableHint, url: j.enableUrl })
+            else if (j && j.needLogin && j.url) setMsg({ text: T.tsLoginHint, url: j.url })
+            else if (j && j.pending) setMsg({ text: T.tsPending })
+            else if (j && j.ok === false && j.error) setMsg({ text: T.tsFail + ' (' + j.error + ')' })
+            else {
+              setMsg({ text: j && j.output ? T.tsDone + ' ' + String(j.output).slice(0, 160) : T.tsDone })
+              load()
+            }
+          })
+          .catch(() => {
+            setBusy('')
+            setMsg({ text: T.tsFail })
+          })
+      }
+      const pin = () => {
+        if (!st || !st.dnsName) return
+        setBusy('pin')
+        setMsg(undefined)
+        fetch(BASE + '/tailscale/pin', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ publicBase: 'https://' + st.dnsName }),
+        })
+          .then((r) => r.json())
+          .then((j) => {
+            setBusy('')
+            if (j && j.ok) {
+              setMsg({ text: T.tsPinned })
+              load()
+            } else setMsg({ text: T.tsFail })
+          })
+          .catch(() => {
+            setBusy('')
+            setMsg({ text: T.tsFail })
+          })
+      }
+      const installed = st !== undefined && st.installed === true
+      const loggedIn = installed && st.loggedIn === true
+      const funnelOn = installed && st.funnel !== undefined && st.funnel.on === true
+      const statusText =
+        st === undefined
+          ? T.tsLoading
+          : installed !== true
+            ? T.tsNotInstalled
+            : loggedIn !== true
+              ? T.tsNotLogged
+              : `${T.tsIpLabel}: ${st.ip || '—'} · ${T.tsNameLabel}: ${st.dnsName || '—'}`
+      return h(
+        'div',
+        { className: 'dmb-ts' },
+        h('div', { className: 'dmb-devices-title' }, T.tsTitle),
+        h('div', { className: 'dmb-muted' }, statusText),
+        installed === true
+          ? h('div', { className: 'dmb-muted' }, `${T.tsFunnelLabel}: ${funnelOn ? st.funnel.url || 'on' : 'off'}`)
+          : null,
+        st && st.publicBase ? h('div', { className: 'dmb-addr' }, st.publicBase) : null,
+        h(
+          'div',
+          { className: 'dmb-device-actions' },
+          h('button', { type: 'button', className: 'dmb-btn', onClick: load, disabled: busy !== '' }, T.refresh),
+          installed !== true
+            ? h('button', { type: 'button', className: 'dmb-btn primary', onClick: () => act('install'), disabled: busy !== '' }, T.tsInstall)
+            : null,
+          installed === true && loggedIn !== true
+            ? h('button', { type: 'button', className: 'dmb-btn primary', onClick: () => act('login'), disabled: busy !== '' }, T.tsLogin)
+            : null,
+          loggedIn === true && funnelOn !== true
+            ? h('button', { type: 'button', className: 'dmb-btn primary', onClick: () => act('funnel'), disabled: busy !== '' }, T.tsEnableFunnel)
+            : null,
+          loggedIn === true && funnelOn === true
+            ? h('button', { type: 'button', className: 'dmb-btn', onClick: () => act('funnel-off'), disabled: busy !== '' }, T.tsDisableFunnel)
+            : null,
+          loggedIn === true && funnelOn === true && st.dnsName
+            ? h('button', { type: 'button', className: 'dmb-btn', onClick: pin, disabled: busy !== '' }, T.tsPin)
+            : null,
+        ),
+        msg
+          ? h(
+              'div',
+              null,
+              h('div', { className: 'dmb-muted' }, msg.text),
+              msg.url ? h('div', { className: 'dmb-addr' }, msg.url) : null,
+            )
+          : null,
+        h('div', { className: 'dmb-muted' }, T.tsFallbackHint),
+      )
+    }
+
     function Cell(props) {
       return h('div', { className: 'dmb-cell' }, props.label, h('b', null, props.value))
     }
@@ -752,6 +896,7 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
                   )
                 : null,
               h(DeviceManager, null),
+              h(TailscaleCard, null),
             )
           : h(
               'div',
