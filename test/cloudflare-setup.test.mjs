@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import { validateCloudflareSetup, readTunnelFile, writeTunnelFile } from '../lib/cloudflare-setup.js'
+import { validateCloudflareSetup, readTunnelFile, writeTunnelFile, parseServiceStatus } from '../lib/cloudflare-setup.js'
 
 assert.equal(validateCloudflareSetup({ token: 'short', publicBase: 'https://a.b' }).ok, false)
 assert.equal(validateCloudflareSetup({ token: 'x'.repeat(30), publicBase: 'http://a.b' }).ok, false)
@@ -18,5 +18,18 @@ writeTunnelFile(dir, { token: 'abc', publicBase: 'https://x' })
 assert.equal(readTunnelFile(dir).token, 'abc')
 assert.equal(readTunnelFile(dir).publicBase, 'https://x')
 fs.rmSync(dir, { recursive: true, force: true })
+
+assert.deepEqual(
+  parseServiceStatus({ stdout: '', stderr: '[SC] OpenService 失败 1060: 指定的服务未安装。' }),
+  { installed: false, running: false },
+)
+assert.deepEqual(
+  parseServiceStatus({ stdout: 'SERVICE_NAME: cloudflared\n        STATE              : 4  RUNNING', stderr: '' }),
+  { installed: true, running: true },
+)
+assert.deepEqual(
+  parseServiceStatus({ stdout: 'SERVICE_NAME: cloudflared\n        STATE              : 1  STOPPED', stderr: '' }),
+  { installed: true, running: false },
+)
 
 console.log('cloudflare-setup: PASS')

@@ -130,6 +130,16 @@ window.__ModuleLoader__.load({
       cfHelp: ZH
         ? '在 Cloudflare Zero Trust → Networks → Tunnels 新建命名隧道并复制连接器 token；给隧道加 Public Hostname 指向 http://127.0.0.1:8787；把该域名填到下面。免费域名可用 EU.org / us.kg（把 NS 指到 Cloudflare）。'
         : 'Create a named tunnel in Cloudflare Zero Trust → Networks → Tunnels, copy the connector token, add a Public Hostname to http://127.0.0.1:8787, and put that domain below. Free domains: EU.org / us.kg (point NS to Cloudflare).',
+      cfSvcLabel: ZH ? '系统服务（开机常驻）' : 'System service (always on)',
+      cfSvcInstall: ZH ? '注册为系统服务（开机常驻）' : 'Install as system service',
+      cfSvcUninstall: ZH ? '卸载系统服务' : 'Uninstall system service',
+      cfSvcRunning: ZH ? '系统服务：运行中' : 'System service: running',
+      cfSvcInstalled: ZH ? '系统服务：已安装' : 'System service: installed',
+      cfSvcOff: ZH ? '系统服务：未注册' : 'System service: not installed',
+      cfNeedsAdmin: ZH
+        ? '需要管理员权限：请以管理员身份运行 DSH 后重试；或在管理员 PowerShell 执行 cloudflared service install <token>。'
+        : 'Needs admin: run DSH as administrator and retry, or run `cloudflared service install <token>` in an admin PowerShell.',
+      cfSvcNote: ZH ? '已交由系统服务托管：开机自启，DSH/Desktop 重启不影响连接。' : 'Tunnel is hosted by the OS service: auto-start on boot, independent of DSH/Desktop restarts.',
       pairRequestTitle: ZH ? '配对请求' : 'Pairing request',
       pairRequestBody: ZH ? '有一台设备通过配对码请求接入。' : 'A device is asking to pair with a valid code.',
       pairFrom: ZH ? '来源' : 'from',
@@ -918,6 +928,39 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
       const installed = st !== undefined && st.cloudflaredInstalled === true
       const statusText =
         st === undefined ? T.cfLoading : installed !== true ? T.cfNoBin : `${T.cfMode}: ${st.mode || '—'}`
+      const svcText =
+        st === undefined
+          ? null
+          : st.serviceRunning === true
+            ? T.cfSvcRunning
+            : st.serviceInstalled === true
+              ? T.cfSvcInstalled
+              : T.cfSvcOff
+      const act = (name, body) => {
+        if (busy !== '') return
+        setBusy(name)
+        setMsg(undefined)
+        fetch(`${BASE}/cloudflare/${name}`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body ?? {}),
+        })
+          .then((r) => r.json())
+          .then((j) => {
+            setBusy('')
+            if (j && j.ok) setMsg(name === 'service-install' ? T.cfSvcNote : T.tsDone)
+            else if (j && j.error === 'needs-admin') setMsg(T.cfNeedsAdmin)
+            else if (j && j.error === 'publicBase-must-be-https') setMsg(T.cfBadDomain)
+            else if (j && j.error === 'token-too-short') setMsg(T.cfBadToken)
+            else setMsg(T.tsFail + (j && j.error ? ' ' + j.error : ''))
+            load()
+          })
+          .catch(() => {
+            setBusy('')
+            setMsg(T.tsFail)
+          })
+      }
       return h(
         'div',
         { className: 'dmb-cf' },
@@ -930,6 +973,7 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
         st && st.reachable !== undefined
           ? h('div', { className: 'dmb-muted' }, `${T.cfReachable}: ${st.reachable ? '✓' : '✗'}`)
           : null,
+        svcText ? h('div', { className: 'dmb-muted' }, svcText) : null,
         h('input', {
           type: 'password',
           placeholder: T.cfTokenPh,
@@ -950,9 +994,23 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
           h('button', { type: 'button', className: 'dmb-btn', onClick: load, disabled: busy !== '' }, T.refresh),
           h('button', { type: 'button', className: 'dmb-btn primary', onClick: save, disabled: busy !== '' }, T.cfSave),
           h('button', { type: 'button', className: 'dmb-btn', onClick: clear, disabled: busy !== '' }, T.cfClear),
+          st && st.serviceInstalled !== true
+            ? h('button', {
+                type: 'button',
+                className: 'dmb-btn',
+                onClick: () => act('service-install', { token: token.trim(), publicBase: domain.trim() }),
+                disabled: busy !== '',
+              }, T.cfSvcInstall)
+            : h('button', {
+                type: 'button',
+                className: 'dmb-btn',
+                onClick: () => act('service-uninstall'),
+                disabled: busy !== '',
+              }, T.cfSvcUninstall),
         ),
         msg ? h('div', { className: 'dmb-muted' }, msg) : null,
         h('div', { className: 'dmb-muted' }, T.cfHelp),
+        h('div', { className: 'dmb-muted' }, T.cfSvcNote),
       )
     }
 

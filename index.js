@@ -133,7 +133,8 @@ export function apply(ctx, raw) {
     typeof merged.publicBase === 'string' && merged.publicBase.trim() !== ''
   ) {
     merged.tunnelMode = 'token'
-    merged.tunnelEnabled = true
+    // 隧道已交给系统服务（serviceManaged）时由 Windows 服务托管连接，插件不再自行拉起 cloudflared。
+    merged.tunnelEnabled = localTunnel.serviceManaged === true ? false : true
   }
   const config = normalize(merged)
   if (!config.enabled) return
