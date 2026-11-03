@@ -1127,11 +1127,65 @@ html[data-dmb-narrow="1"][data-dmb-sidebar-open="1"] [class*="_frame"]{
       apply()
     }
 
+    /**
+     * 窄屏点会话后自动收起左侧功能栏。
+     *
+     * 窄屏（data-dmb-narrow=1）下侧栏展开时是覆盖层；点某个会话进入对话后宿主
+     * 不会收起侧栏，280px 的列表一直盖着主会话窗口，用户必须再点一次才能看到
+     * 会话全景。这里在文档捕获阶段识别「点在会话行上」，短延迟后触发宿主自己的
+     * 折叠按钮 —— 收起交给宿主状态机，而不是用样式硬顶，行为与手动点击一致。
+     * 仅窄屏生效：桌面宽屏侧栏是常驻列，收起反而碍事。
+     */
+    function installAutoCollapseOnSessionPick() {
+      if (typeof document === 'undefined') return
+      let timer
+      const toggleOf = () => {
+        const logo = document.querySelector('[class*="_logoRow"]')
+        const local = logo === null || logo === undefined ? null : logo.querySelector('button[class*="_toggle"]')
+        if (local !== null) return local
+        // 宿主改类名时的兜底：按 aria-label 找左侧栏开关（避开「右侧边栏」）。
+        return [...document.querySelectorAll('button[aria-label]')].find((button) => {
+          const label = button.getAttribute('aria-label') ?? ''
+          return /收起侧边栏|收起侧栏|collapse sidebar/i.test(label) === true && /右侧/.test(label) === false
+        })
+      }
+      document.addEventListener(
+        'click',
+        (event) => {
+          if (timer !== undefined) return
+          const html = document.documentElement
+          if (html.getAttribute('data-dmb-narrow') !== '1') return
+          const target = event.target instanceof Element ? event.target : null
+          if (target === null || typeof target.closest !== 'function') return
+          const row = target.closest('[class*="_sessionRow"]')
+          if (row === null) return
+          // 侧栏尚未展开（或刚收起）就不必动作；sessionRow 只在展开态存在，可作兜底信号。
+          const expanded =
+            html.getAttribute('data-dmb-sidebar-open') === '1' ||
+            document.querySelector('[class*="_sidebarCol"] [class*="_sessionRow"]') !== null
+          if (expanded !== true) return
+          // 点在行内次级控件（「会话操作」/重命名等）上时不抢收起，把点击还给控件；
+          // 点在行主体（标题/时间）上才收起。注意每行常驻一个图标按钮，不能按
+          // 「行里有没有 button」判断，必须看点击落点。
+          const control = target.closest('button, a, input, [role="menuitem"], [role="checkbox"]')
+          if (control !== null && row.contains(control)) return
+          // 略等宿主完成会话切换再收起，避免动画期间布局抖动。
+          timer = window.setTimeout(() => {
+            timer = undefined
+            const toggle = toggleOf()
+            if (toggle !== undefined) toggle.click()
+          }, 160)
+        },
+        true,
+      )
+    }
+
     function apply(ctx) {
       if (typeof document === 'undefined') return
       ensureStyle()
       installNarrowFlag()
       installSidebarState()
+      installAutoCollapseOnSessionPick()
       installTransportResilience()
       installSettingsNav()
       installIconButtonFix()
