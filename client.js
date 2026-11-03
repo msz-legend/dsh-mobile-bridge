@@ -226,8 +226,8 @@ html[data-dmb-narrow="1"] .wnLwla_footerActions{flex-wrap:wrap!important;gap:8px
 html[data-dmb-narrow="1"] .wnLwla_progress,
 html[data-dmb-narrow="1"] .wnLwla_waitStatus,
 html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
-/* 窄屏收起态 rail 空白处的「› 展开」提示：点击该空白区域即展开左侧功能栏。 */
-.dmb-rail-hint{position:fixed;z-index:1040;left:8px;top:46%;width:40px;display:none;
+/* 窄屏收起态 rail 空白处的「› 展开」提示：放在左下角头像正上方，点击该空白区域即展开侧栏。 */
+.dmb-rail-hint{position:fixed;z-index:1040;left:8px;bottom:calc(74px + env(safe-area-inset-bottom,0px));width:40px;display:none;
   flex-direction:column;align-items:center;gap:2px;color:var(--dsw-alias-label-tertiary,#8a8f98);
   font-size:10px;line-height:1.2;pointer-events:none;user-select:none}
 .dmb-rail-hint .chev{font-size:20px;line-height:1}
