@@ -127,6 +127,14 @@ export function apply(ctx, raw) {
   ) {
     merged.publicBase = localTunnel.publicBase.trim()
   }
+  // 本地 tunnel.json 里同时有 token + 固定域名 → 视为命名隧道模式（重启后持续生效，无需改仓库配置）。
+  if (
+    typeof merged.tunnelToken === 'string' && merged.tunnelToken.trim() !== '' &&
+    typeof merged.publicBase === 'string' && merged.publicBase.trim() !== ''
+  ) {
+    merged.tunnelMode = 'token'
+    merged.tunnelEnabled = true
+  }
   const config = normalize(merged)
   if (!config.enabled) return
 
@@ -181,6 +189,26 @@ export function apply(ctx, raw) {
     },
   })
 
+  // 隧道重启（命名隧道一键接入用）：停掉当前 quick/token 进程，确认退出后按新 config 重新拉起。
+  const restartTunnel = async () => {
+    try {
+      await tunnel.stop()
+    } catch {
+      /* ignore */
+    }
+    for (let index = 0; index < 20; index += 1) {
+      if (tunnel.status().running !== true) break
+      await new Promise((resolve) => setTimeout(resolve, 150))
+    }
+    publicBaseCache = undefined
+    try {
+      await tunnel.start()
+    } catch {
+      /* ignore */
+    }
+    publicBaseCache = undefined
+  }
+
   let edge
   let routes
 
@@ -216,6 +244,7 @@ export function apply(ctx, raw) {
           config.publicBase = typeof url === 'string' ? url : ''
           publicBaseCache = undefined
         },
+        restartTunnel,
         getEdgeStatus: () => ({
           listening: edge?.isListening?.() === true,
           host: config.edgeHost,

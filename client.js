@@ -113,6 +113,23 @@ window.__ModuleLoader__.load({
       tsFallbackHint: ZH
         ? '连不通时请退回「公网隧道(cloudflared)」或局域网（同 WiFi 直连）。'
         : 'If unreachable, fall back to the cloudflared tunnel or LAN (same Wi-Fi).',
+      cfTitle: ZH ? 'Cloudflare 固定域名（命名隧道）' : 'Cloudflare fixed domain (named tunnel)',
+      cfLoading: ZH ? '检测中…' : 'Detecting…',
+      cfNoBin: ZH ? '未检测到 cloudflared，请先安装' : 'cloudflared not installed',
+      cfMode: ZH ? '模式' : 'Mode',
+      cfAddr: ZH ? '当前地址' : 'Address',
+      cfTokenSaved: ZH ? '已保存 token' : 'token saved',
+      cfTokenPh: ZH ? '连接器 token（cloudflared tunnel token）' : 'Connector token',
+      cfDomainPh: ZH ? '固定域名，如 https://dsh.example.com' : 'Fixed domain e.g. https://dsh.example.com',
+      cfSave: ZH ? '保存并启用固定域名' : 'Save & enable',
+      cfClear: ZH ? '清除（回到临时隧道）' : 'Clear (back to quick)',
+      cfOk: ZH ? '已启用，约几十秒生效后点「刷新」验证。' : 'Enabled — wait ~30s then Refresh.',
+      cfBadToken: ZH ? 'token 为空或太短' : 'token empty/too short',
+      cfBadDomain: ZH ? '域名必须以 https:// 开头' : 'Domain must start with https://',
+      cfReachable: ZH ? '公网可达' : 'Public reachable',
+      cfHelp: ZH
+        ? '在 Cloudflare Zero Trust → Networks → Tunnels 新建命名隧道并复制连接器 token；给隧道加 Public Hostname 指向 http://127.0.0.1:8787；把该域名填到下面。免费域名可用 EU.org / us.kg（把 NS 指到 Cloudflare）。'
+        : 'Create a named tunnel in Cloudflare Zero Trust → Networks → Tunnels, copy the connector token, add a Public Hostname to http://127.0.0.1:8787, and put that domain below. Free domains: EU.org / us.kg (point NS to Cloudflare).',
       pairRequestTitle: ZH ? '配对请求' : 'Pairing request',
       pairRequestBody: ZH ? '有一台设备通过配对码请求接入。' : 'A device is asking to pair with a valid code.',
       pairFrom: ZH ? '来源' : 'from',
@@ -160,6 +177,10 @@ window.__ModuleLoader__.load({
 .dmb-devices{margin-top:16px;border-top:1px solid rgba(127,127,127,.25);padding-top:14px}
 .dmb-ts{margin-top:16px;border-top:1px solid rgba(127,127,127,.25);padding-top:14px}
 .dmb-ts .dmb-device-actions{margin-top:8px;justify-content:flex-start}
+.dmb-cf{margin-top:16px;border-top:1px solid rgba(127,127,127,.25);padding-top:14px}
+.dmb-cf input{width:100%;box-sizing:border-box;margin-top:6px;padding:8px 10px;border:1px solid rgba(127,127,127,.35);
+  border-radius:8px;font:inherit;font-size:13px;background:var(--dsw-specific-input-major,#fff);color:inherit}
+.dmb-cf .dmb-device-actions{margin-top:8px;justify-content:flex-start}
 .dmb-devices-title{font-weight:600;font-size:13px;margin-bottom:8px}
 .dmb-device{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;border:1px solid rgba(127,127,127,.25);
   border-radius:12px;padding:10px 12px;background:rgba(127,127,127,.05);min-width:0;overflow-wrap:anywhere;margin-bottom:8px}
@@ -816,6 +837,125 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
       )
     }
 
+    /** Cloudflare 固定域名（命名隧道）一键接入：填 token+域名 → 写本地文件、切 token 模式、重启隧道、验证。 */
+    function CloudflareCard() {
+      ensureStyle()
+      const [st, setSt] = react.useState(undefined)
+      const [token, setToken] = react.useState('')
+      const [domain, setDomain] = react.useState('')
+      const [busy, setBusy] = react.useState('')
+      const [msg, setMsg] = react.useState(undefined)
+      const load = () => {
+        fetch(BASE + '/cloudflare.json', { credentials: 'same-origin' })
+          .then((r) => (r.ok ? r.json() : undefined))
+          .then((j) => {
+            if (j && j.ok === true) {
+              setSt(j)
+              if (j.configuredPublicBase && domain === '') setDomain(j.configuredPublicBase)
+            }
+          })
+          .catch(() => undefined)
+      }
+      react.useEffect(() => {
+        load()
+      }, [])
+      const save = () => {
+        if (busy !== '') return
+        if (token.trim().length < 20) {
+          setMsg(T.cfBadToken)
+          return
+        }
+        if (/^https:\/\//i.test(domain.trim()) !== true) {
+          setMsg(T.cfBadDomain)
+          return
+        }
+        setBusy('save')
+        setMsg(undefined)
+        fetch(BASE + '/cloudflare/setup', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ token: token.trim(), publicBase: domain.trim() }),
+        })
+          .then((r) => r.json())
+          .then((j) => {
+            setBusy('')
+            if (j && j.ok) {
+              setMsg(T.cfOk)
+              setToken('')
+              load()
+            } else if (j && j.error === 'publicBase-must-be-https') setMsg(T.cfBadDomain)
+            else if (j && j.error === 'token-too-short') setMsg(T.cfBadToken)
+            else setMsg(T.tsFail + (j && j.error ? ' ' + j.error : ''))
+          })
+          .catch(() => {
+            setBusy('')
+            setMsg(T.tsFail)
+          })
+      }
+      const clear = () => {
+        if (busy !== '') return
+        if (window.confirm(T.cfClear) !== true) return
+        setBusy('clear')
+        setMsg(undefined)
+        fetch(BASE + '/cloudflare/clear', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: '{}',
+        })
+          .then((r) => r.json())
+          .then((j) => {
+            setBusy('')
+            setMsg(j && j.ok ? T.tsDone : T.tsFail)
+            load()
+          })
+          .catch(() => {
+            setBusy('')
+            setMsg(T.tsFail)
+          })
+      }
+      const installed = st !== undefined && st.cloudflaredInstalled === true
+      const statusText =
+        st === undefined ? T.cfLoading : installed !== true ? T.cfNoBin : `${T.cfMode}: ${st.mode || '—'}`
+      return h(
+        'div',
+        { className: 'dmb-cf' },
+        h('div', { className: 'dmb-devices-title' }, T.cfTitle),
+        h('div', { className: 'dmb-muted' }, statusText),
+        st && st.publicBase ? h('div', { className: 'dmb-addr' }, st.publicBase) : null,
+        st && st.hasToken
+          ? h('div', { className: 'dmb-muted' }, T.cfTokenSaved + (st.configuredPublicBase ? ' · ' + st.configuredPublicBase : ''))
+          : null,
+        st && st.reachable !== undefined
+          ? h('div', { className: 'dmb-muted' }, `${T.cfReachable}: ${st.reachable ? '✓' : '✗'}`)
+          : null,
+        h('input', {
+          type: 'password',
+          placeholder: T.cfTokenPh,
+          value: token,
+          onChange: (e) => setToken(e.target.value),
+          autoComplete: 'off',
+        }),
+        h('input', {
+          type: 'url',
+          placeholder: T.cfDomainPh,
+          value: domain,
+          onChange: (e) => setDomain(e.target.value),
+          autoComplete: 'off',
+        }),
+        h(
+          'div',
+          { className: 'dmb-device-actions' },
+          h('button', { type: 'button', className: 'dmb-btn', onClick: load, disabled: busy !== '' }, T.refresh),
+          h('button', { type: 'button', className: 'dmb-btn primary', onClick: save, disabled: busy !== '' }, T.cfSave),
+          h('button', { type: 'button', className: 'dmb-btn', onClick: clear, disabled: busy !== '' }, T.cfClear),
+        ),
+        msg ? h('div', { className: 'dmb-muted' }, msg) : null,
+        h('div', { className: 'dmb-muted' }, T.cfHelp),
+      )
+    }
+
     function Cell(props) {
       return h('div', { className: 'dmb-cell' }, props.label, h('b', null, props.value))
     }
@@ -897,6 +1037,7 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
                 : null,
               h(DeviceManager, null),
               h(TailscaleCard, null),
+              h(CloudflareCard, null),
             )
           : h(
               'div',
