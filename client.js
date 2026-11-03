@@ -1704,10 +1704,17 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
         const width = outer === undefined ? 0 : outer.getBoundingClientRect().width
         return { show: width > 0 && width <= 90, col }
       }
+      // 软键盘/输入法半屏升起：可视视口被顶起（offsetTop>0）或高度明显缩小。
+      // 此时左下角「› 展开」提示会压在键盘区上，需要藏起来、键盘收起后再恢复。
+      const keyboardUp = () => {
+        const vv = window.visualViewport
+        if (!vv) return false
+        return vv.offsetTop > 8 || vv.height < window.innerHeight * 0.75
+      }
       const update = () => {
         const state = current()
         const node = ensureHint()
-        node.style.display = state.show === true ? 'flex' : 'none'
+        node.style.display = state.show === true && keyboardUp() === false ? 'flex' : 'none'
       }
       const openSidebar = () => {
         const logo = document.querySelector('[class*="_logoRow"]')
@@ -1741,6 +1748,10 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
         true,
       )
       window.addEventListener('resize', update, { passive: true })
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', update, { passive: true })
+        window.visualViewport.addEventListener('scroll', update, { passive: true })
+      }
       new MutationObserver(update).observe(document.documentElement, { childList: true, subtree: true })
       update()
     }
