@@ -10,6 +10,8 @@
 
 <p align="center">
   <img src="docs/screenshots/cover.png" width="420" alt="Remotely use DSH Desktop from your phone: QR pairing, streaming replies, tool approvals" />
+  <br/>
+  <img src="docs/screenshots/demo.gif" width="240" alt="Demo: home → session list → streaming reply → done" />
 </p>
 
 DSH Desktop's web UI only listens on `127.0.0.1`, so phones can't reach it. This plugin adds an **edge gateway** in between: your phone still loads the desktop's web UI (same-origin WebSocket / RPC, streaming output all untouched), so there is no "crippled mobile version" and no second frontend to maintain.
