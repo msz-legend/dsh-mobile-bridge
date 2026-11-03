@@ -193,6 +193,10 @@ html[data-dmb-narrow="1"] [data-dmb-overlay]{
   overflow-y:auto;overscroll-behavior:contain}
 html[data-dmb-narrow="1"][data-dmb-sidebar-open="1"] [class*="_frame"]{
   grid-template-columns:0px minmax(0,1fr) 0px !important}
+/* 侧栏展开时盖在内容上的一层透明点击层：灰色来自上面的 box-shadow，
+   本层只负责接住「点灰色区域」的点击 → 收起侧栏（并阻止穿透到被遮住的内容）。 */
+.dmb-scrim{position:fixed;top:0;right:0;bottom:0;left:0;z-index:1049;background:transparent;display:none;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation}
 `
 
     function ensureStyle() {
@@ -1090,6 +1094,34 @@ html[data-dmb-narrow="1"][data-dmb-sidebar-open="1"] [class*="_frame"]{
     function installSidebarState() {
       if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return
       let frame = 0
+      let scrim
+      // 触发宿主自己的折叠按钮（收起侧边栏），让收起走宿主状态机。
+      const collapseSidebar = () => {
+        const logo = document.querySelector('[class*="_logoRow"]')
+        const local = logo === null || logo === undefined ? null : logo.querySelector('button[class*="_toggle"]')
+        const toggle =
+          local !== null
+            ? local
+            : [...document.querySelectorAll('button[aria-label]')].find((button) => {
+                const label = button.getAttribute('aria-label') ?? ''
+                return /收起侧边栏|收起侧栏|collapse sidebar/i.test(label) === true && /右侧/.test(label) === false
+              })
+        if (toggle !== null && toggle !== undefined) toggle.click()
+      }
+      // 灰色区域点击层：懒建、复用一个；点它只收起侧栏，不把点击穿透给被遮住的内容。
+      const ensureScrim = () => {
+        if (scrim !== undefined && scrim.isConnected === true) return scrim
+        scrim = document.createElement('div')
+        scrim.className = 'dmb-scrim'
+        scrim.setAttribute('aria-hidden', 'true')
+        scrim.addEventListener('click', (event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          collapseSidebar()
+        })
+        document.body.appendChild(scrim)
+        return scrim
+      }
       const apply = () => {
         const html = document.documentElement
         if (html === null) return
@@ -1105,6 +1137,10 @@ html[data-dmb-narrow="1"][data-dmb-sidebar-open="1"] [class*="_frame"]{
           document.querySelectorAll('[data-dmb-overlay]').forEach((node) => node.removeAttribute('data-dmb-overlay'))
           html.removeAttribute('data-dmb-sidebar-open')
         }
+        // 只有「窄屏 + 展开」才显示可点击的灰色遮罩层。
+        const narrow = html.getAttribute('data-dmb-narrow') === '1'
+        const mask = ensureScrim()
+        if (mask !== undefined) mask.style.display = expanded && narrow ? 'block' : 'none'
       }
       const schedule = () => {
         if (frame !== 0) return
