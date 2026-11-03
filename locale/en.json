@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Mobile Bridge",
+    "title": "DSH-Mobile",
     "description": "Pair a phone browser with this Desktop instance: shared Web UI, streaming output, and tool-call approvals (once / always / reject)."
   },
   "pair": {

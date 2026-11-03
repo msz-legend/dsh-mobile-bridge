@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "手机桥接",
+    "title": "DSH-Mobile",
     "description": "把手机浏览器配对到本机 Desktop：共用现有 Web UI、流式回显、工具审批（仅本次 / 始终允许 / 拒绝）。"
   },
   "pair": {
