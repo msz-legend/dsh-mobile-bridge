@@ -11,8 +11,16 @@
 <p align="center">
   <img src="docs/screenshots/cover.png" width="420" alt="手机远程接入 DSH Desktop：扫码配对 · 流式输出 · 工具审批" />
   <br/>
-  <img src="docs/screenshots/demo.gif" width="240" alt="演示：主页 → 会话列表 → 流式输出 → 回答完成" />
+  <img src="docs/screenshots/demo.gif" width="240" alt="演示：扫码配对 → 会话列表 → 流式输出 → 工具审批 → 回答完成" />
 </p>
+
+<p align="center">
+  <img src="docs/screenshots/06-m-pairing.png" width="170" alt="手机扫码配对" />
+  <img src="docs/screenshots/08-m-approval.png" width="170" alt="手机工具审批卡片" />
+  <img src="docs/screenshots/09-desktop-bridge-settings.png" width="330" alt="桌面桥接配置" />
+  <img src="docs/screenshots/11-desktop-fixed-domain.png" width="330" alt="桌面固定域名接入" />
+</p>
+<p align="center"><sub>手机扫码配对 · 手机工具审批卡片 · 桌面桥接配置 · 桌面固定域名 —— 更多见 <a href="docs/screenshots/">docs/screenshots/</a>（13 张）</sub></p>
 
 <p align="center">
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-green" /></a>
