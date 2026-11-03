@@ -266,7 +266,7 @@ html[data-dmb-narrow="1"] .wnLwla_frame{
   box-sizing:border-box!important;width:100vw!important;max-width:100vw!important;
   margin-left:calc(50% - 50vw)!important;margin-right:calc(50% - 50vw)!important;
   padding-left:10px!important;padding-right:10px!important}
-html[data-dmb-narrow="1"] .wnLwla_card{width:100%!important;max-width:100%!important;max-height:none!important}
+html[data-dmb-narrow="1"] .wnLwla_card{width:100%!important;max-width:100%!important;max-height:100dvh!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch!important;overscroll-behavior:contain!important}
 html[data-dmb-narrow="1"] .wnLwla_header{padding:16px 12px 0 16px!important;gap:8px!important}
 html[data-dmb-narrow="1"] .wnLwla_headingBlock{flex:1 1 auto!important;min-width:0!important}
 html[data-dmb-narrow="1"] .wnLwla_title{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere!important}
