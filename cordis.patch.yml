@@ -34,3 +34,6 @@
         offlineGraceMs: 5000
         # 手机/LAN 来源的配对需桌面确认；确认请求的有效期。
         pairConfirmTtlMs: 120000
+        # 手机扫码提交配对码后跳过桌面确认弹窗、自动发设备令牌（true = 免确认）。
+        # 配对码本身仍然生效：6 位数字、5 分钟有效、限尝试次数，防扫描爆破。
+        autoApprovePairing: true
