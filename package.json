@@ -24,7 +24,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node test/approval-bridge.test.mjs && node test/cloudflared.test.mjs && node test/pairing-confirm.test.mjs && node test/device-management.test.mjs && node test/tunnel-health.test.mjs",
+    "test": "node test/approval-bridge.test.mjs && node test/cloudflared.test.mjs && node test/pairing-confirm.test.mjs && node test/device-management.test.mjs && node test/tunnel-health.test.mjs && node test/qcard-css.test.mjs",
     "check": "node --check index.js && node --check client.js && node --check lib/cloudflared.js && node --check lib/pairing.js && node --check lib/routes.js"
   },
   "keywords": [

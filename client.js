@@ -203,6 +203,29 @@ html[data-dmb-narrow="1"][data-dmb-sidebar-open="1"] [class*="_frame"]{
    本层只负责接住「点灰色区域」的点击 → 收起侧栏（并阻止穿透到被遮住的内容）。 */
 .dmb-scrim{position:fixed;top:0;right:0;bottom:0;left:0;z-index:1049;background:transparent;display:none;
   -webkit-tap-highlight-color:transparent;touch-action:manipulation}
+/* 宿主「提问卡片」（dsh-client-ui-user-questions，类前缀 wnLwla_）：窄屏下会被挤在
+   会话列里、标题/选项不换行导致变形。这里在窄屏把它铺满视口并强制换行，
+   底部按钮完整可点。选择器只命中该组件类，不影响其它 UI。 */
+html[data-dmb-narrow="1"] .wnLwla_frame{
+  box-sizing:border-box!important;width:100vw!important;max-width:100vw!important;
+  margin-left:calc(50% - 50vw)!important;margin-right:calc(50% - 50vw)!important;
+  padding-left:10px!important;padding-right:10px!important}
+html[data-dmb-narrow="1"] .wnLwla_card{width:100%!important;max-width:100%!important;max-height:none!important}
+html[data-dmb-narrow="1"] .wnLwla_header{padding:16px 12px 0 16px!important;gap:8px!important}
+html[data-dmb-narrow="1"] .wnLwla_headingBlock{flex:1 1 auto!important;min-width:0!important}
+html[data-dmb-narrow="1"] .wnLwla_title{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere!important}
+html[data-dmb-narrow="1"] .wnLwla_detail{overflow-wrap:anywhere!important}
+html[data-dmb-narrow="1"] .wnLwla_options{padding-left:8px!important;padding-right:8px!important}
+html[data-dmb-narrow="1"] .wnLwla_option{padding:8px 10px!important}
+html[data-dmb-narrow="1"] .wnLwla_optionLine,
+html[data-dmb-narrow="1"] .wnLwla_optionLabel,
+html[data-dmb-narrow="1"] .wnLwla_optionCopy{display:block!important;white-space:normal!important;overflow:visible!important;
+  overflow-wrap:anywhere!important;word-break:break-word!important;-webkit-line-clamp:unset!important}
+html[data-dmb-narrow="1"] .wnLwla_footer,
+html[data-dmb-narrow="1"] .wnLwla_footerActions{flex-wrap:wrap!important;gap:8px!important}
+html[data-dmb-narrow="1"] .wnLwla_progress,
+html[data-dmb-narrow="1"] .wnLwla_waitStatus,
+html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
 `
 
     function ensureStyle() {
