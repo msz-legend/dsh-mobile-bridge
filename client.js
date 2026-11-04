@@ -1553,8 +1553,21 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
         const roots = column === null ? [] : [...column.querySelectorAll('[class*="_root"]')]
         // 侧栏面板内部还有嵌套的 _root，取不被其他 _root 包含的最外层那个。
         const outer = roots.find((node) => !roots.some((other) => other !== node && other.contains(node)))
-        const expanded = outer !== undefined && outer.getBoundingClientRect().width > 150
-        if (expanded) {
+        // 宿主两代侧栏布局，展开判定必须分开：
+        // ① 旧 grid 布局：收起态 _root 宽 56px，展开态 >150px → 用宽度判定。
+        // ② 新 drawer 布局（_frame[data-sidebar-drawer]）：收起态 _root 仍占 280px，
+        //    只是 sidebarCol translate(-100%) 移出视口 —— 宽度判定恒为「展开」，
+        //    曾导致窄屏下 scrim 常驻、点任意位置都在开/关侧栏。
+        //    这里改看 _frame 的 data-sidebar-collapsed 属性（无该属性 = 展开），
+        //    并兜底要求侧栏根确实在视口内（x ≥ -10）。
+        const frame = document.querySelector('[class*="_frame"]')
+        const drawer = frame !== null && frame.hasAttribute('data-sidebar-drawer')
+        const width = outer === undefined ? 0 : outer.getBoundingClientRect().width
+        const onScreen = outer !== undefined && outer.getBoundingClientRect().x >= -10
+        const expanded = drawer
+          ? frame.hasAttribute('data-sidebar-collapsed') !== true && onScreen
+          : width > 150
+        if (expanded && outer !== undefined) {
           outer.setAttribute('data-dmb-overlay', '')
           html.setAttribute('data-dmb-sidebar-open', '1')
         } else {
@@ -1583,7 +1596,15 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
       document.addEventListener('click', scheduleSettled, true)
       window.addEventListener('resize', schedule, { passive: true })
       window.addEventListener('orientationchange', schedule, { passive: true })
+      // drawer 模式下宿主切换 data-sidebar-collapsed 是属性变化，childList observer
+      // 看不到，必须显式监听（否则 scrim 的显隐会慢一拍）。
       new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true })
+      if (typeof MutationObserver !== 'undefined') {
+        const frameEl = document.querySelector('[class*="_frame"]')
+        if (frameEl !== null) {
+          new MutationObserver(schedule).observe(frameEl, { attributes: true, attributeFilter: ['data-sidebar-collapsed'] })
+        }
+      }
       apply()
     }
 
