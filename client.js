@@ -287,6 +287,14 @@ html[data-dmb-narrow="1"] [data-dmb-overlay]{
   overflow-y:auto;overscroll-behavior:contain}
 html[data-dmb-narrow="1"][data-dmb-sidebar-open="1"] [class*="_frame"]{
   grid-template-columns:0px minmax(0,1fr) 0px !important}
+/* DMB-018：宿主 drawer 模式（_frame[data-sidebar-drawer]）下 sidebarCol 自带
+   transform + z-index:71 的层叠上下文，打在侧栏根上的 z-index:1050 困在里面，
+   压不过 body 直属的 .dmb-scrim(1049) → 展开态下遮罩反而盖住侧栏本身，
+   点会话行全部落在 scrim 上（表现为只能收起、无法切换会话）。
+   展开时把 sidebarCol 整列提到 scrim 之上（实测 sidebarCol 的祖先无层叠上下文，
+   其 z-index 直接参与根级比较）。 */
+html[data-dmb-narrow="1"][data-dmb-sidebar-open="1"] [class*="_sidebarCol"]{
+  z-index:1051 !important}
 /* 侧栏展开时盖在内容上的一层透明点击层：灰色来自上面的 box-shadow，
    本层只负责接住「点灰色区域」的点击 → 收起侧栏（并阻止穿透到被遮住的内容）。 */
 .dmb-scrim{position:fixed;top:0;right:0;bottom:0;left:0;z-index:1049;background:transparent;display:none;
@@ -1636,6 +1644,11 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
           if (timer !== undefined) return
           const html = document.documentElement
           if (html.getAttribute('data-dmb-narrow') !== '1') return
+          // DMB-018：宿主 drawer 模式（_frame[data-sidebar-drawer]）下，点会话行后
+          // 宿主自己就会收起抽屉（实测 collapsed 置位）。这里若再补一次 toggle.click()
+          // 会把刚收起的抽屉重新打开 —— 表现为「点会话后侧栏不消失」。drawer 模式直接交给宿主。
+          const frame = document.querySelector('[class*="_frame"]')
+          if (frame !== null && frame.hasAttribute('data-sidebar-drawer')) return
           const target = event.target instanceof Element ? event.target : null
           if (target === null || typeof target.closest !== 'function') return
           const row = target.closest('[class*="_sessionRow"]')

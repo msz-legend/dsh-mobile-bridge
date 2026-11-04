@@ -1,5 +1,25 @@
 # DSH Mobile Bridge v0.4.7 缺陷清单
 
+## R4-fix2（2026-11-05，用户反馈「无法切换会话」）
+
+### DMB-018：drawer 层叠上下文把 scrim 顶到侧栏之上 → 会话行点击全部被吞（S1）
+
+- 级别：S1
+- 现象：窄屏展开侧栏后点会话行，会话不切换，只表现为侧栏收起/循环开闭。
+- 根因（两层）：
+  1. 宿主 drawer 模式下 `sidebarCol` 自带 `transform` + `z-index:71` 的层叠上下文，插件打在侧栏根上的 `z-index:1050` 困在里面出不来；body 直属的 `.dmb-scrim`(1049) 反而盖住侧栏本身 → 点会话行的点击全落在 scrim 上。
+  2. 宿主 drawer 模式点会话行后**原生就会收起抽屉**；插件 `installAutoCollapseOnSessionPick` 再补一次 `toggle.click()`，把刚收起的抽屉重新打开（表现为「点会话后侧栏不消失」）。
+- 修复（client.js）：
+  1. 新增 CSS：`html[data-dmb-sidebar-open="1"] [class*="_sidebarCol"]{z-index:1051!important}` —— 展开时把侧栏列提到 scrim 之上；
+  2. `installAutoCollapseOnSessionPick` 检测 `data-sidebar-drawer`，drawer 模式直接交给宿主原生收起，不再补 toggle。
+- 验证（Playwright 360×740）：
+  - 点「定时任务」会话行 → 主内容标题切换成功 + 侧栏自动收起 ✓（此前标题恒不变化）
+  - scrim 点击收起、主内容点击 no-op 回归正常 ✓
+  - 「新会话」不是列表条目而是顶部「+ 新会话」按钮（宿主原生设计），新会话入口走该按钮 ✓
+  - `npm run check` + `npm test` 全绿。
+- 生效：client.js → 刷新手机页面即生效。
+- 状态：已修复（2026-11-05）。
+
 ## R4-fix1（2026-11-05，用户真机反馈「点哪都开关侧栏，完全无法使用」）
 
 ### DMB-017：宿主侧栏改 drawer 布局后，展开判定恒真 → scrim 常驻、点击循环开关侧栏（S1）
