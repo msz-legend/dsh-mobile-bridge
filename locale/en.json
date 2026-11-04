@@ -4,13 +4,30 @@
     "description": "Pair a phone browser with this Desktop instance: shared Web UI, streaming output, and tool-call approvals (once / always / reject)."
   },
   "pair": {
-    "title": "Pair a phone",
-    "hint": "Scan the QR code, or open the URL and enter the code.",
+    "title": "Pair phone · DSH Mobile Bridge",
+    "h1": "Pair your phone",
+    "hint": "Scan the QR code on the desktop, or open this URL and enter the code.",
     "code": "Pairing code",
+    "name": "Device name (optional)",
     "url": "Address",
     "expires": "Expires in",
-    "expired": "This code has expired. Reload to get a new one.",
-    "submit": "Pair"
+    "noCode": "No active pairing code on the desktop. On the computer, open Settings → Mobile Bridge → \"New pairing code\", then come back here.",
+    "mismatch": "The code does not match. Check the 6-digit code on the desktop screen and try again.",
+    "tooMany": "Too many wrong attempts for this code. It is now void — generate a new one on the desktop.",
+    "busy": "The pairing confirmation channel is busy. Try again shortly.",
+    "limit": "Device limit reached ({max}). Revoke an old device on the desktop first.",
+    "submit": "Pair",
+    "qrAlt": "Pairing QR code",
+    "wait": {
+      "title": "Waiting for desktop approval · DSH Mobile Bridge",
+      "h1": "Waiting for desktop approval",
+      "p": "Code verified. Approve this pairing in the DSH window on your computer — this page continues automatically.",
+      "waiting": "Waiting for desktop approval…",
+      "entering": "Approved — entering…",
+      "denied": "The desktop denied this pairing.",
+      "limit": "Device limit reached. Revoke an old device on the desktop first.",
+      "expired": "Approval timed out. Refresh the pairing page on the desktop and retry."
+    }
   },
   "approval": {
     "title": "Tool approval",
@@ -20,6 +37,8 @@
     "reject": "Reject",
     "timeout": "Timed out — rejected by default",
     "remember": "Will remember:",
+    "high": "High risk",
+    "normal": "Needs confirmation",
     "riskHigh": "High risk",
     "riskNormal": "Needs confirmation"
   }

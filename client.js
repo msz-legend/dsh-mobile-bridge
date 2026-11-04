@@ -160,22 +160,50 @@ window.__ModuleLoader__.load({
   border-radius:16px;box-shadow:0 18px 48px rgba(0,0,0,.28);overflow:hidden;
   font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
 .dmb-head{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--dsw-alias-state-warn-tertiary,#fff7e6);
-  color:var(--dsw-alias-state-warn-primary,#8a5a00);font-size:13px}
+  color:#7c4a03;font-size:13px;font-weight:600}
+/* DMB-011 修复：文字弃用 warn token（宿主该 token 前景=amber 245,158,11，配奶油底仅 1.99:1），
+   改为高对比固定色 #7c4a03（on token 奶油底 ≈5.9:1）；暗色由下方媒体查询整块覆盖为 #fbbf24 on #2a221a。 */
 .dmb-dot{width:8px;height:8px;border-radius:50%;background:#e0a526}
 .dmb-body{padding:12px 14px 0;max-height:42vh;overflow:auto}
 .dmb-tool{font-weight:600;font-size:15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .dmb-badge{font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:#fff1f2;color:#be123c;border:1px solid #fecdd3}
 .dmb-badge.normal{background:#eef2ff;color:#3730a3;border-color:#c7d2fe}
 .dmb-sum{margin-top:8px;white-space:pre-wrap;word-break:break-all;font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;
-  color:var(--dsw-alias-label-tertiary,#555);background:rgba(127,127,127,.08);border-radius:8px;padding:8px 10px;max-height:22vh;overflow:auto}
-.dmb-pattern{margin-top:8px;font-size:12px;color:#0f766e;background:rgba(13,148,136,.1);border-radius:8px;padding:6px 10px;word-break:break-all}
+  color:#4b5563;background:rgba(127,127,127,.08);border-radius:8px;padding:8px 10px;max-height:22vh;overflow:auto}
+/* DMB-010：摘要/计时器/元信息从 #555/#666 提到 #4b5563（≥7:1 on white，暗色叠加后仍 ≥4.5）。 */
+.dmb-pattern{margin-top:8px;font-size:12px;color:#115e59;background:rgba(13,148,136,.1);border-radius:8px;padding:6px 10px;word-break:break-all}
+/* DMB-010：#0f766e→#115e59（on 浅青底 ≈5.6:1）。暗色下 rgba 青底叠暗卡后，前景仍为深青会不可读——
+   由下方 dark 媒体查询整体换暗色配对。 */
 .dmb-foot{display:flex;align-items:center;gap:8px;padding:12px 14px;flex-wrap:wrap}
-.dmb-timer{margin-right:auto;font-variant-numeric:tabular-nums;font-size:12px;color:var(--dsw-alias-label-tertiary,#666)}
+.dmb-timer{margin-right:auto;font-variant-numeric:tabular-nums;font-size:12px;color:#4b5563}
 .dmb-btn{border:1px solid rgba(127,127,127,.35);background:transparent;color:inherit;border-radius:10px;
-  padding:9px 14px;font-size:14px;font-weight:600;min-height:40px;cursor:pointer}
+  padding:9px 14px;font-size:14px;font-weight:600;min-height:44px;cursor:pointer;
+  transition:filter .12s ease, transform .12s ease, background-color .12s ease}
+/* DMB-012：min-height 40→44（WCAG 2.5.8 实践标准）+ 按压反馈（亮度/位移变化 ≤120ms 可感知）。 */
 .dmb-btn.primary{background:#2563eb;border-color:#2563eb;color:#fff}
-.dmb-btn.danger{color:#b91c1c;border-color:#fca5a5}
+.dmb-btn.danger{background:#dc2626;border-color:#dc2626;color:#fff}
+/* DMB-010：拒绝改为实底红+白字（4.8:1，亮暗通用），把「安全默认」从描边弱样式升级为高辨识实底。 */
 .dmb-btn[disabled]{opacity:.5;cursor:default}
+/* DMB-012：禁用态保持可供性——主按钮禁用去色，避免过期卡「仅本次」仍像可点。 */
+.dmb-btn.primary[disabled]{background:rgba(37,99,235,.38);border-color:transparent;color:rgba(255,255,255,.85)}
+.dmb-btn.danger[disabled]{background:rgba(220,38,38,.38);border-color:transparent;color:rgba(255,255,255,.85)}
+/* DMB-012：全局按压反馈（触屏 pointerdown 即 :active；桌面 mousedown 同样生效）。
+   只做亮度/透明度类安全属性，不改布局。媒体查询限定触屏/窄屏，避免桌面 hover 交互被拖累。 */
+@media (hover: none), (pointer: coarse){
+  button:not([disabled]):active{filter:brightness(.86) !important}
+  [role="button"]:not([disabled]):active{filter:brightness(.86) !important}
+}
+/* DMB-010 暗色适配：宿主暗色大概率跟随系统（prefers-color-scheme），fallback 色在这里整体换暗色配对；
+   若宿主用 class 驱动主题，媒体查询不命中时保持亮色高对比（仍可读），不会更糟。 */
+@media (prefers-color-scheme: dark){
+  .dmb-card{background:#26262a;border-color:#57534e}
+  .dmb-head{background:#2a221a;color:#fbbf24}
+  .dmb-sum{color:#d1d5db;background:rgba(127,127,127,.16)}
+  .dmb-pattern{color:#5eead4;background:rgba(20,184,166,.18)}
+  .dmb-timer{color:#d1d5db}
+  .dmb-badge{background:#4c0519;color:#fecdd3;border-color:#881337}
+  .dmb-badge.normal{background:#1e1b4b;color:#c7d2fe;border-color:#3730a3}
+}
 .dmb-settings{padding:16px;font:13px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;width:100%;max-width:100%;box-sizing:border-box;overflow-wrap:anywhere;overflow:auto;max-height:100%;-webkit-overflow-scrolling:touch}
 .dmb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,120px),1fr));gap:10px;margin:12px 0}
 .dmb-cell{border:1px solid rgba(127,127,127,.25);border-radius:12px;padding:10px 12px;background:rgba(127,127,127,.05);min-width:0;overflow-wrap:anywhere}
@@ -284,8 +312,10 @@ html[data-dmb-narrow="1"] .wnLwla_waitStatus,
 html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
 /* 窄屏收起态 rail 空白处的「› 展开」提示：放在左下角头像正上方，点击该空白区域即展开侧栏。 */
 .dmb-rail-hint{position:fixed;z-index:1040;left:8px;bottom:calc(74px + env(safe-area-inset-bottom,0px));width:40px;display:none;
-  flex-direction:column;align-items:center;gap:2px;color:var(--dsw-alias-label-tertiary,#8a8f98);
-  font-size:10px;line-height:1.2;pointer-events:none;user-select:none}
+  flex-direction:column;align-items:center;gap:2px;color:#5d646e;
+  font-size:11px;line-height:1.2;pointer-events:none;user-select:none}
+/* DMB-015：字号 10→11px；颜色弃用 label-tertiary token（宿主解析为 #81858c，3.71:1 不达 AA），
+   固定 #5d646e ≈ 5.6:1 on white，暗色下 on #1c1c1e ≈ 4.9:1。 */
 .dmb-rail-hint .chev{font-size:20px;line-height:1}
 `
 
@@ -1602,6 +1632,25 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
     }
 
     /**
+     * DMB-015③：composer 软键盘回车键显示「发送」而非「换行」。
+     * 宿主 composer 是运行时渲染的 contenteditable，无法从注入层改模板，
+     * 这里用 MutationObserver 在它出现时补 enterkeyhint/autocapitalize 属性。
+     */
+    function installComposerEnterKeyHint() {
+      if (typeof document === 'undefined') return
+      const COMPOSER = '[data-composer-input="true"]'
+      const update = () => {
+        const el = document.querySelector(COMPOSER)
+        // 每次 DOM 变动都幂等检查：React 重建 composer 后属性会丢失，这里能自动补回。
+        if (el === null || el.getAttribute('enterkeyhint') === 'send') return
+        el.setAttribute('enterkeyhint', 'send')
+        el.setAttribute('autocapitalize', 'sentences')
+      }
+      new MutationObserver(update).observe(document.documentElement, { childList: true, subtree: true })
+      update()
+    }
+
+    /**
      * 窄屏打开会话时不自动唤起输入法。
      *
      * 宿主打开会话后会把 composer（contenteditable 的 [data-composer-input]）自动聚焦，
@@ -1711,10 +1760,22 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
         if (!vv) return false
         return vv.offsetTop > 8 || vv.height < window.innerHeight * 0.75
       }
+      // 提示固定在 (28, 视口底部上方 ~91px)。只有该位置的最顶层元素仍属于 rail 列时才显示：
+      // 设置抽屉/提问卡/全屏弹层等盖住 rail 时自动隐藏（z-index 低于提示的浮层曾把提示透出来）。
+      const hintX = 28
+      const hintY = () => window.innerHeight - 91
+      const covered = () => {
+        const probe = document.elementFromPoint(hintX, hintY())
+        if (probe === null) return true
+        const col = document.querySelector('[class*="_sidebarCol"]')
+        if (col === null) return true
+        return col.contains(probe) !== true
+      }
       const update = () => {
         const state = current()
         const node = ensureHint()
-        node.style.display = state.show === true && keyboardUp() === false ? 'flex' : 'none'
+        const show = state.show === true && keyboardUp() === false && covered() === false
+        node.style.display = show ? 'flex' : 'none'
       }
       const openSidebar = () => {
         const logo = document.querySelector('[class*="_logoRow"]')
@@ -1748,6 +1809,8 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
         true,
       )
       window.addEventListener('resize', update, { passive: true })
+      // 浮层开合/页面滚动都可能改变提示位置的最顶层元素，一并监听。
+      document.addEventListener('scroll', update, { passive: true, capture: true })
       if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', update, { passive: true })
         window.visualViewport.addEventListener('scroll', update, { passive: true })
@@ -1765,6 +1828,7 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
       installAutoCollapseOnSessionPick()
       installNoAutoKeyboardOnOpen()
       installTransportResilience()
+      installComposerEnterKeyHint()
       installSettingsNav()
       installIconButtonFix()
       // 先回执再注册：这样即使 slot 注册失败，宿主也能观测到「半身确实执行到了哪一步」。
