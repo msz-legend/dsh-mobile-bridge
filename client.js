@@ -260,7 +260,11 @@ window.__ModuleLoader__.load({
 /* 图标按钮保圆：宿主注入的全局 button{min-height:40px} 会把 36x36 的图标按钮
    撑成 36x40、28x28 撑成 28x40，视觉上就是椭圆。这里只对运行时标记过的按钮
    取消 min-height 并强制正方形（见 installIconButtonFix），文字按钮不受影响。 */
-button[data-dmb-icon]{min-height:0 !important;aspect-ratio:1 / 1 !important}
+button[data-dmb-icon]{min-height:0 !important;aspect-ratio:1 / 1 !important;
+  display:inline-flex !important;align-items:center !important;justify-content:center !important;padding:0 !important}
+/* DMB：折叠钮等图标按钮的 svg 被宿主设了 margin/定位导致偏心（截图问题 2），
+   图标按钮内的 svg 一律取消 margin 并由 flex 居中。 */
+button[data-dmb-icon] > svg{margin:0 !important;position:static !important}
 button[data-dmb-icon][data-dmb-tiny]{min-width:24px !important;min-height:24px !important}
 /* 隧道断开提示条 */
 .dmb-banner{position:fixed;left:8px;right:8px;top:calc(8px + env(safe-area-inset-top));z-index:2147482500;
@@ -317,6 +321,11 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
 /* DMB-015：字号 10→11px；颜色弃用 label-tertiary token（宿主解析为 #81858c，3.71:1 不达 AA），
    固定 #5d646e ≈ 5.6:1 on white，暗色下 on #1c1c1e ≈ 4.9:1。 */
 .dmb-rail-hint .chev{font-size:20px;line-height:1}
+/* IME/软键盘升起（html[data-dmb-ime] 由 installRailOpenShortcut 维护）：
+   ① 藏起「› 展开」提示 —— Android 布局视口随键盘一起缩小，fixed 提示会叠在 rail 图标上；
+   ② 隐藏收起 rail 底部的用户头像让位，缓解「更多工具」等入口被挤压重叠。 */
+html[data-dmb-narrow="1"][data-dmb-ime="1"] .dmb-rail-hint{display:none!important}
+html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avatar" i]{display:none!important}
 `
 
     function ensureStyle() {
@@ -1753,12 +1762,29 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
         const width = outer === undefined ? 0 : outer.getBoundingClientRect().width
         return { show: width > 0 && width <= 90, col }
       }
-      // 软键盘/输入法半屏升起：可视视口被顶起（offsetTop>0）或高度明显缩小。
-      // 此时左下角「› 展开」提示会压在键盘区上，需要藏起来、键盘收起后再恢复。
+      // 软键盘/输入法半屏升起判定。
+      // iOS：布局视口不变，可视视口被顶起 → offsetTop>0 或 vv.height < innerHeight*0.75。
+      // Android Chrome：布局视口本身随键盘缩小，innerHeight 与 vv.height 一起变小，
+      // 上式永远不成立 → 必须与「屏幕高」比（screen.height 不随键盘变）。
+      // 判定结果写入 html[data-dmb-ime]，CSS 据此藏提示/头像（见样式表注释）。
+      let imeState = false
       const keyboardUp = () => {
         const vv = window.visualViewport
         if (!vv) return false
-        return vv.offsetTop > 8 || vv.height < window.innerHeight * 0.75
+        const screenH = (typeof window.screen === 'object' ? Number(window.screen.height) : 0) || window.innerHeight
+        if (vv.offsetTop > 8) return true
+        // iOS 特征：可视视口比布局视口小一大截（>120px）且未铺满
+        if (window.innerHeight - vv.height > 120) return true
+        // Android 特征：可视视口不足屏幕高 55%（手机竖屏键盘至少占 40%+）
+        return vv.height < screenH * 0.55
+      }
+      const syncIme = () => {
+        const html = document.documentElement
+        const up = keyboardUp()
+        if (up === imeState) return
+        imeState = up
+        if (up) html.setAttribute('data-dmb-ime', '1')
+        else html.removeAttribute('data-dmb-ime')
       }
       // 提示固定在 (28, 视口底部上方 ~91px)。只有该位置的最顶层元素仍属于 rail 列时才显示：
       // 设置抽屉/提问卡/全屏弹层等盖住 rail 时自动隐藏（z-index 低于提示的浮层曾把提示透出来）。
@@ -1772,9 +1798,17 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
         return col.contains(probe) !== true
       }
       const update = () => {
+        syncIme()
         const state = current()
         const node = ensureHint()
-        const show = state.show === true && keyboardUp() === false && covered() === false
+        // data-dmb-sidebar-open 属性变化不触发 childList observer，必须显式判展开态：
+        // 侧栏全屏抽屉打开时提示绝不能显示（截图问题 1）。
+        const sidebarOpen = document.documentElement.getAttribute('data-dmb-sidebar-open') === '1'
+        const show =
+          state.show === true &&
+          sidebarOpen === false &&
+          imeState === false &&
+          covered() === false
         node.style.display = show ? 'flex' : 'none'
       }
       const openSidebar = () => {
@@ -1815,7 +1849,14 @@ html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
         window.visualViewport.addEventListener('resize', update, { passive: true })
         window.visualViewport.addEventListener('scroll', update, { passive: true })
       }
-      new MutationObserver(update).observe(document.documentElement, { childList: true, subtree: true })
+      // attributes 必须监听：data-dmb-sidebar-open / data-dmb-narrow 都是属性信号，
+      // 只监 childList 时侧栏展开（问题 1）与窄屏切换都不会触发 update。
+      new MutationObserver(update).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['data-dmb-sidebar-open', 'data-dmb-narrow', 'data-dmb-ime', 'class', 'style'],
+      })
       update()
     }
 
