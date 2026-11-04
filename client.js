@@ -165,6 +165,27 @@ window.__ModuleLoader__.load({
         : 'This browser does not support web notifications (HTTPS + SW required; iOS must Add to Home Screen first).',
       notifyBody: ZH ? '有工具调用等待你的审批' : 'A tool call is waiting for your approval',
       notifyPairBody: ZH ? '有设备请求配对接入' : 'A device is asking to pair',
+      pushActive: ZH ? '后台推送：已登记（浏览器关闭也能收到）。' : 'Background push: registered (works with the browser closed).',
+      pushReady: ZH
+        ? '后台推送：此浏览器支持，下次开启通知时一并登记。'
+        : 'Background push: supported, registers next time you enable notifications.',
+      pushAbsent: ZH
+        ? '后台推送：此浏览器不支持（WebView/无 Push API）。页面内通知与外部通道仍可用。'
+        : 'Background push: unsupported (WebView / no Push API). In-page notifications and external channels still work.',
+      channelTitle: ZH ? '外部推送通道（全浏览器兜底）' : 'External push channels (fallback for every browser)',
+      channelHint: ZH
+        ? '审批/配对事件会 POST 到你配置的通道 APP（ntfy/Bark/飞书/钉钉/企业微信/Telegram/通用 webhook）。不依赖浏览器，任何手机都能收。'
+        : 'Approval/pairing events POST to your channel app (ntfy/Bark/Feishu/DingTalk/WeCom/Telegram/generic webhook). Browser-independent — works on any phone.',
+      channelAdd: ZH ? '添加通道' : 'Add channel',
+      channelType: ZH ? '类型' : 'Type',
+      channelSave: ZH ? '保存' : 'Save',
+      channelRemove: ZH ? '删除' : 'Remove',
+      channelSaved: ZH ? '已保存。' : 'Saved.',
+      channelFieldTopic: ZH ? '主题（订阅名）' : 'Topic',
+      channelFieldServer: ZH ? '服务器（可选，默认 ntfy.sh）' : 'Server (optional, default ntfy.sh)',
+      channelFieldUrl: ZH ? 'Webhook / 推送 URL' : 'Webhook / push URL',
+      channelFieldToken: ZH ? 'token（可选）' : 'token (optional)',
+      channelFieldChatId: ZH ? 'chat_id' : 'chat_id',
     }
 
     const CSS = `
@@ -270,6 +291,15 @@ window.__ModuleLoader__.load({
 [data-dmb-settings][data-dmb-narrow="1"][data-dmb-mode="detail"] [data-dmb-content]{
   width:100% !important;max-width:none !important;flex:1 1 auto !important}
 [data-dmb-settings] [data-dmb-content] [class*="_options"]{overflow-x:hidden !important}
+/* DMB-019：宿主新版设置抽屉（panel 子元素 navTitle/nav/header/options）的适配。
+   ① 内容区绑定到 _options（bind 侧），list 态隐藏、detail 态全宽沿用上面通用规则；
+   ② 新版 navList 是横向一排 navCell（grid 204px+156px 双栏 + 列向溢出），
+      360px 下「手机桥接」等后半段被排到视口外（x≈600）完全点不到。
+      这里在 data-dmb-settings（即窄屏补丁已 bind）范围内把导航纵向化。 */
+[data-dmb-settings] [class*="_panel"]{grid-template-columns:1fr !important;overflow-y:auto !important}
+[data-dmb-settings] [class*="_navList"]{
+  display:flex !important;flex-direction:column !important;width:100% !important}
+[data-dmb-settings] [class*="_navCell"]{width:100% !important;box-sizing:border-box !important}
 .dmb-nav-back{position:fixed;z-index:2147482140;display:flex;align-items:center;justify-content:center;
   width:40px;height:40px;border-radius:50%;border:1px solid rgba(127,127,127,.35);
   background:rgba(127,127,127,.14);color:inherit;font-size:22px;line-height:1;cursor:pointer;
@@ -446,6 +476,72 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
           }
         })
         .catch(() => undefined)
+    }
+
+    /* ---- L2 Web Push：页面关闭也能收到（桌面端主动推）。 ----
+     * 订阅状态与「页面内通知」开关共用：开启开关 → 既要页面内通知，也要登记 push 订阅。
+     * 浏览器不支持 pushManager（WebView 系/iOS 非主屏 PWA）时静默跳过 —— 这些设备由 L1/L3 覆盖。 */
+    function pushSupported() {
+      return (
+        notifySupported() &&
+        typeof window.PushManager === 'function' &&
+        typeof navigator.serviceWorker === 'object'
+      )
+    }
+
+    /** 把当前 push 订阅登记到桌面端（幂等；失败静默，L1 仍可用）。 */
+    function registerPushSubscription(registration) {
+      if (registration === undefined || registration.pushManager === undefined) return Promise.resolve(false)
+      return fetch(BASE + '/push/vapid.json', { credentials: 'same-origin' })
+        .then((response) => (response.ok ? response.json() : undefined))
+        .then((json) => {
+          const applicationServerKey = json?.publicKey
+          if (typeof applicationServerKey !== 'string' || applicationServerKey === '') return false
+          return registration.pushManager
+            .getSubscription()
+            .then((existing) => {
+              if (existing !== null) return existing
+              return registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: applicationServerKey,
+              })
+            })
+            .then((subscription) =>
+              fetch(BASE + '/push/subscribe.json', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ subscription: subscription.toJSON() }),
+              }),
+            )
+            .then(() => true)
+            .catch(() => false)
+        })
+        .catch(() => false)
+    }
+
+    /** 关闭开关时同步退订（尽力而为）。 */
+    function unregisterPushSubscription() {
+      if (!pushSupported()) return Promise.resolve(false)
+      return navigator.serviceWorker
+        .getRegistration('/')
+        .then((registration) => registration?.pushManager?.getSubscription())
+        .then((subscription) => {
+          const endpoint = subscription?.endpoint
+          const unsubscribe = subscription?.unsubscribe() ?? Promise.resolve()
+          if (typeof endpoint !== 'string') return false
+          return unsubscribe
+            .then(() =>
+              fetch(BASE + '/push/unsubscribe.json', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ endpoint }),
+              }),
+            )
+            .then(() => true)
+        })
+        .catch(() => false)
     }
 
     /**
@@ -1208,7 +1304,25 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
     function NotifyToggle() {
       // status: 'off' | 'on' | 'denied' | 'unsupported'
       const [status, setStatus] = react.useState(() => (notifySupported() ? (notifyEnabled() ? 'on' : 'off') : 'unsupported'))
+      // push 层能力单独展示：'no' | 'yes' | 'active'（已登记订阅）
+      const [push, setPush] = react.useState(() => (pushSupported() ? 'yes' : 'no'))
       const [busy, setBusy] = react.useState(false)
+
+      // 开着时顺带确认 push 订阅在册（页面加载后.effect 一次，避免开关开了但订阅丢失）。
+      react.useEffect(() => {
+        if (status !== 'on' || pushSupported() === false) return
+        let alive = true
+        ensureNotifyRegistration().then((registration) => {
+          if (alive !== true || registration === undefined) return
+          registration.pushManager
+            .getSubscription()
+            .then((subscription) => setPush(subscription !== null ? 'active' : 'yes'))
+            .catch(() => undefined)
+        })
+        return () => {
+          alive = false
+        }
+      }, [status])
 
       const toggle = () => {
         if (busy) return
@@ -1220,7 +1334,7 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
             /* ignore */
           }
           setStatus('off')
-          setBusy(false)
+          unregisterPushSubscription().finally(() => setBusy(false))
           return
         }
         // requestPermission 必须同步发生在用户手势里（套在 promise .then 后会丢失
@@ -1248,6 +1362,10 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
                 /* ignore */
               }
               setStatus('on')
+              // L2：顺带登记 Web Push 订阅（页面关闭也能收）。失败不阻塞 —— L1 已生效。
+              registerPushSubscription(registration).then((ok) => {
+                if (ok) setPush('active')
+              })
               // 立即回一条可见通知，确认链路通（用户点通知会聚焦回本页）。
               registration.showNotification(T.title, { tag: 'dmb-test', body: T.notifyStateOn, data: { url: '/' } })
             })
@@ -1258,6 +1376,11 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
 
       const stateText =
         status === 'on' ? T.notifyStateOn : status === 'denied' ? T.notifyDenied : status === 'unsupported' ? T.notifyUnsupported : T.notifyStateOff
+      const pushText = pushSupported()
+        ? push === 'active'
+          ? T.pushActive
+          : T.pushReady
+        : T.pushAbsent
       return h(
         'div',
         { className: 'dmb-notify' },
@@ -1272,10 +1395,130 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
           ),
         ),
         h('div', { className: 'dmb-muted' }, stateText),
+        h('div', { className: 'dmb-muted' }, pushText),
       )
     }
 
-    /** 插件详情里的设置页：回答「手机桥接现在是什么状态、怎么再配一台」。 */
+    /**
+     * L3 外部通道配置卡（仅桌面端显示：手机上是「填 URL 的人」的对端）。
+     * 每条通道 = 类型 + 字段。保存即生效（notify.setChannel 落盘 push.json）。
+     */
+    function ChannelCard() {
+      const [channels, setChannels] = react.useState(undefined) // { name: { fields, enabled } }
+      const [presets, setPresets] = react.useState([])
+      const [editing, setEditing] = react.useState(undefined) // { channel, fields } | undefined
+      const [busy, setBusy] = react.useState(false)
+      const [note, setNote] = react.useState(undefined)
+
+      const reload = () => {
+        fetch(BASE + '/push/channel.json', { credentials: 'same-origin' })
+          .then((response) => (response.ok ? response.json() : undefined))
+          .then((json) => {
+            if (json?.ok === true) {
+              setChannels(json.channels ?? {})
+              setPresets(Array.isArray(json.presets) ? json.presets : [])
+            }
+          })
+          .catch(() => undefined)
+      }
+      react.useEffect(reload, [])
+
+      if (channels === undefined) return null
+
+      const presetOf = (name) => presets.find((preset) => preset.name === name)
+
+      const save = () => {
+        if (editing === undefined || busy) return
+        setBusy(true)
+        fetch(BASE + '/push/channel.json', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ channel: editing.channel, fields: editing.fields, enabled: true }),
+        })
+          .then((response) => response.json().catch(() => ({})))
+          .then((json) => setNote(json?.ok === true ? T.channelSaved : 'error'))
+          .then(reload)
+          .catch(() => setNote('error'))
+          .finally(() => setBusy(false))
+      }
+      const remove = (channel) => {
+        fetch(BASE + '/push/channel.json', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ channel, enabled: false }),
+        })
+          .then(reload)
+          .catch(() => undefined)
+      }
+
+      return h(
+        'div',
+        { className: 'dmb-cf' },
+        h('div', { className: 'dmb-devices-title' }, T.channelTitle),
+        h('div', { className: 'dmb-muted' }, T.channelHint),
+        Object.entries(channels).map(([name, config]) =>
+          h(
+            'div',
+            { className: 'dmb-device', key: name },
+            h(
+              'div',
+              { className: 'dmb-device-main' },
+              h('div', { className: 'dmb-device-name' }, presetOf(name)?.label ?? name),
+              h('div', { className: 'dmb-device-meta' }, Object.keys(config.fields ?? {}).join(', ')),
+            ),
+            h(
+              'div',
+              { className: 'dmb-device-actions' },
+              h(
+                'button',
+                { type: 'button', className: 'dmb-btn', onClick: () => setEditing({ channel: name, fields: { ...(config.fields ?? {}) } }) },
+                T.refresh,
+              ),
+              h('button', { type: 'button', className: 'dmb-btn danger', onClick: () => remove(name) }, T.channelRemove),
+            ),
+          ),
+        ),
+        editing === undefined
+          ? h(
+              'select',
+              {
+                value: '',
+                onChange: (event) => {
+                  const channel = event.target.value
+                  if (channel === '') return
+                  setEditing({ channel, fields: {} })
+                },
+              },
+              h('option', { value: '' }, T.channelAdd),
+              presets
+                .filter((preset) => channels[preset.name] === undefined)
+                .map((preset) => h('option', { value: preset.name, key: preset.name }, preset.label)),
+            )
+          : h(
+              'div',
+              null,
+              h('div', { className: 'dmb-devices-title' }, presetOf(editing.channel)?.label ?? editing.channel),
+              h('div', { className: 'dmb-muted' }, presetOf(editing.channel)?.hint ?? ''),
+              (presetOf(editing.channel)?.fields ?? []).map((field) =>
+                h('input', {
+                  key: field,
+                  placeholder: field,
+                  value: editing.fields[field] ?? '',
+                  onInput: (event) => setEditing({ ...editing, fields: { ...editing.fields, [field]: event.target.value } }),
+                }),
+              ),
+              h(
+                'div',
+                { className: 'dmb-device-actions' },
+                h('button', { type: 'button', className: 'dmb-btn primary', onClick: save, disabled: busy }, T.channelSave),
+                h('button', { type: 'button', className: 'dmb-btn', onClick: () => setEditing(undefined) }, T.reject),
+              ),
+            ),
+        note ? h('div', { className: 'dmb-muted' }, note) : null,
+      )
+    }
     function SettingsPanel() {
       ensureStyle()
       const data = useOverview()
@@ -1354,6 +1597,7 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
               h(DeviceManager, null),
               h(TailscaleCard, null),
               h(CloudflareCard, null),
+              h(ChannelCard, null),
             )
           : h(
               'div',
@@ -1454,7 +1698,14 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
           return
         }
         const nav = childWith(panel, '_nav')
-        const content = childWith(panel, '_content')
+        // 宿主两代设置抽屉结构，content 的取法不同（DMB-019）：
+        // ① 旧版：panel 直接子元素含语义后缀 _content（nav + content 双栏）。
+        // ② 新版：panel 子元素为 navTitle/nav/header/options —— _content 没了，
+        //    内容区就是 _options 本身；且 navList 改为横向 grid 一排 navCell，
+        //    360px 下整排溢出视口（「手机桥接」被排到 x≈600，点不到）。
+        //    新版把 content 绑到 _options，CSS 侧再对 navList 做纵向化。
+        const legacyContent = childWith(panel, '_content')
+        const content = legacyContent !== undefined ? legacyContent : options
         if (nav === undefined || content === undefined) {
           cleanup()
           return

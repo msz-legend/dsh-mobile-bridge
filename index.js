@@ -25,6 +25,7 @@ import { createEdge } from './lib/edge.js'
 import { createCloudflared } from './lib/cloudflared.js'
 import { createHostLogin } from './lib/host-login.js'
 import { registerRoutes, DEVICE_COOKIE } from './lib/routes.js'
+import { createNotifyDispatcher } from './lib/push.js'
 import { resolvePublicBase } from './lib/tunnel.js'
 import { installIndexInjection } from './lib/index-inject.js'
 
@@ -159,7 +160,15 @@ export function apply(ctx, raw) {
   const clientHello = { count: 0, lastAt: 0, href: undefined, note: undefined }
 
   // 审批桥接：Host 侧唯一需要真正参与宿主逻辑的模块。
-  const bridge = createApprovalBridge({ config, hub, always, args, origins, log })
+  // 全局通知调度器（L2 Web Push + L3 外部通道中继）：审批/配对产生时主动推送，
+  // 手机浏览器完全关闭也能收到 —— 覆盖 WebView 系浏览器与 iOS 第三方浏览器。
+  const notify = createNotifyDispatcher({
+    storeDir: storeDirHint,
+    log,
+    // publicBase 是异步解析的（隧道晚启动），dispatch 时实时取已缓存值。
+    publicBase: () => publicBaseCache ?? config.publicBase ?? '',
+  })
+  const bridge = createApprovalBridge({ config, hub, always, args, origins, log, notify })
   const disposeApproval = ctx.on('approval/request', bridge.handler, { prepend: true, global: true })
   log(`approval bridge attached (timeout local=${config.approvalTimeoutMs}ms remote=${config.approvalTimeoutRemoteMs}ms)`)
 
@@ -252,6 +261,7 @@ export function apply(ctx, raw) {
           port: config.edgePort,
           bindings: edge?.bindings?.() ?? [],
         }),
+        notify,
       })
 
       edge = createEdge({ config, log, pairing, hub, origins, hostLogin })
