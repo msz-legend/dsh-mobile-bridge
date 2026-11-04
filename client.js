@@ -150,6 +150,21 @@ window.__ModuleLoader__.load({
       linkLost: ZH
         ? '连接已中断：隧道地址可能已更换。请刷新页面；仍失败就回电脑上重新生成配对码并扫码。'
         : 'Connection lost: the tunnel address may have changed. Refresh; if it persists, re-pair from the desktop.',
+      notifyTitle: ZH ? '审批系统通知' : 'Approval notifications',
+      notifyOn: ZH ? '开启' : 'Enable',
+      notifyOff: ZH ? '关闭' : 'Disable',
+      notifyStateOn: ZH ? '已开启：审批卡片出现时推送系统通知。' : 'On: a system notification fires when an approval card appears.',
+      notifyStateOff: ZH
+        ? '已关闭。开启后会请求系统通知权限（仅在你点击时请求）。'
+        : 'Off. Enabling asks for the notification permission (only on your tap).',
+      notifyDenied: ZH
+        ? '浏览器已拒绝通知权限：请在系统/浏览器设置里允许本站通知后重试。'
+        : 'Notification permission was denied: allow notifications for this site in browser settings, then retry.',
+      notifyUnsupported: ZH
+        ? '此浏览器不支持网页通知（需要 HTTPS + Service Worker；iOS 需先「添加到主屏幕」）。'
+        : 'This browser does not support web notifications (HTTPS + SW required; iOS must Add to Home Screen first).',
+      notifyBody: ZH ? '有工具调用等待你的审批' : 'A tool call is waiting for your approval',
+      notifyPairBody: ZH ? '有设备请求配对接入' : 'A device is asking to pair',
     }
 
     const CSS = `
@@ -233,6 +248,9 @@ window.__ModuleLoader__.load({
 .dmb-device-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-left:auto}
 .dmb-device-actions .dmb-btn,.dmb-settings .dmb-device-actions .dmb-btn{width:auto;max-width:none;margin-top:0;padding:6px 10px;min-height:32px;font-size:13px}
 @media (max-width:420px){.dmb-device-actions{margin-left:0;width:100%}}
+.dmb-notify{margin-top:16px;border-top:1px solid rgba(127,127,127,.25);padding-top:14px}
+.dmb-notify-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.dmb-notify-row .dmb-btn{width:auto;max-width:none;margin-top:0;min-height:36px;padding:6px 14px}
 /* 窄屏设置抽屉：改成「列表 → 详情」两级导航（逻辑见 installSettingsNav）。
    宿主的设置抽屉是「左导航 + 右内容」双栏固定布局，360dp 下导航吃掉大半宽度、
    内容只剩一点点，文字叠在一起。窄屏下这里改为：
@@ -358,6 +376,119 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
       }
     }
 
+    /**
+     * 审批系统通知：手机浏览器在锁屏/切后台时也能看到「有审批待处理」。
+     *
+     * 权限模型：只在用户点击设置面板开关（用户手势）时请求 Notification.permission，
+     * 绝不在页面加载时自动弹。开关状态记在 localStorage（键 dmb_notify）。
+     * 发送路径：Android/桌面 Chrome 走 SW registration.showNotification()（页面直接
+     * new Notification() 在 Android 上是 TypeError）；不支持时开关上明确提示原因。
+     * 去重：SSE 重连会重放未决审批（replayRequests），按 requestId/confirmId 去重。
+     * 生命周期：approval-resolved / pair-request-resolved 时关闭对应通知，避免死通知。
+     */
+    const NOTIFY_KEY = 'dmb_notify'
+    let notifyRegistration = undefined
+
+    function notifyEnabled() {
+      try {
+        return window.localStorage.getItem(NOTIFY_KEY) === '1'
+      } catch {
+        return false
+      }
+    }
+
+    function notifySupported() {
+      return typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator
+    }
+
+    /** 注册 SW（幂等）。scope 必须给 '/'：页面在根路径，SW 文件在插件前缀下。 */
+    function ensureNotifyRegistration() {
+      if (!notifySupported()) return Promise.resolve(undefined)
+      if (notifyRegistration !== undefined) return Promise.resolve(notifyRegistration)
+      return navigator.serviceWorker
+        .register(BASE + '/sw.js', { scope: '/' })
+        .then((registration) => {
+          notifyRegistration = registration
+          return registration
+        })
+        .catch(() => undefined)
+    }
+
+    /** 发系统通知（SW 路径；页面正可见时由调用方保证不进到这里）。 */
+    function showApprovalNotification(kind, id, title, body) {
+      const show = (registration) => {
+        if (registration === undefined) return
+        try {
+          registration.showNotification(title, {
+            tag: 'dmb-' + kind + '-' + id,
+            body,
+            requireInteraction: true,
+            data: { url: '/', kind, id },
+          })
+        } catch {
+          /* SW/通知在部分浏览器上可能瞬态失败，忽略 */
+        }
+      }
+      if (notifyRegistration !== undefined) {
+        show(notifyRegistration)
+        return
+      }
+      ensureNotifyRegistration().then(show)
+    }
+
+    function closeNotificationById(kind, id) {
+      if (notifyRegistration === undefined) return
+      notifyRegistration
+        .getNotifications()
+        .then((list) => {
+          for (const notification of list) {
+            if (notification.data?.kind === kind && notification.data?.id === id) notification.close()
+          }
+        })
+        .catch(() => undefined)
+    }
+
+    /**
+     * 通知调度：待决审批的统一入口。
+     * - 页面可见：不发（卡片就在眼前），但记入待发集合；
+     * - 页面隐藏：立即发；
+     * - visible→hidden 切换：把待发集合里的全部补发（「先来的审批在你切走后也要响」）；
+     * - 审批解决：出集合 + 关通知。
+     * pendingNotify 上限 200：超限清空（SSE 重放最多让旧 id 再响一次，可接受）。
+     */
+    const pendingNotify = new Map()
+
+    function flushPendingNotifications() {
+      if (notifyEnabled() !== true) return
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') return
+      for (const [key, entry] of pendingNotify) {
+        showApprovalNotification(entry.kind, entry.id, entry.title, entry.body)
+        pendingNotify.delete(key)
+      }
+    }
+
+    function trackPendingNotification(kind, id, toolName, bodyPrefix) {
+      const key = kind + ':' + id
+      if (pendingNotify.has(key)) return
+      const entry = { kind, id, title: T.title, body: `${bodyPrefix}\n${toolName}` }
+      if (kind === 'pair') {
+        entry.title = T.pairRequestTitle
+        entry.body = T.notifyPairBody
+      }
+      pendingNotify.set(key, entry)
+      if (pendingNotify.size > 200) pendingNotify.clear()
+      flushPendingNotifications()
+    }
+
+    function releasePendingNotification(kind, id) {
+      pendingNotify.delete(kind + ':' + id)
+      closeNotificationById(kind, id)
+    }
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', flushPendingNotifications, { passive: true })
+    }
+
     function useApprovalFeed() {
       const [items, setItems] = react.useState([])
       const [pairRequests, setPairRequests] = react.useState([])
@@ -387,8 +518,12 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
               setItems((previous) =>
                 previous.some((entry) => entry.requestId === request.requestId) ? previous : [...previous, request],
               )
+              // 系统通知：后台/锁屏时提醒有审批待处理（按 requestId 去重，SSE 重连重放不重复通知）。
+              // 页面可见时不发（卡片就在眼前）；但把 id 记为「未发通知」，待 visible→hidden 时补发。
+              trackPendingNotification('approval', request.requestId, request.toolName || 'tool', T.notifyBody)
             } else if (message.type === 'approval-resolved') {
               setItems((previous) => previous.filter((entry) => entry.requestId !== message.requestId))
+              releasePendingNotification('approval', message.requestId)
             } else if (message.type === 'pair-request' && message.confirmId) {
               // broadcastLoopback 只发桌面；手机不会收到配对请求卡片
               setPairRequests((previous) =>
@@ -396,8 +531,9 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
                   ? previous
                   : [...previous, message],
               )
-            } else if (message.type === 'pair-request-resolved') {
+              trackPendingNotification('pair', message.confirmId, T.pairRequestTitle, T.notifyPairBody)            } else if (message.type === 'pair-request-resolved') {
               setPairRequests((previous) => previous.filter((entry) => entry.confirmId !== message.confirmId))
+              releasePendingNotification('pair', message.confirmId)
             }
           }
           source.onerror = () => {
@@ -1065,6 +1201,80 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
       return h('div', { className: 'dmb-cell' }, props.label, h('b', null, props.value))
     }
 
+    /**
+     * 审批系统通知开关（手机/桌面都显示）。
+     * 权限请求只发生在这次点击里（用户手势）；页面加载时绝不自动弹权限框。
+     */
+    function NotifyToggle() {
+      // status: 'off' | 'on' | 'denied' | 'unsupported'
+      const [status, setStatus] = react.useState(() => (notifySupported() ? (notifyEnabled() ? 'on' : 'off') : 'unsupported'))
+      const [busy, setBusy] = react.useState(false)
+
+      const toggle = () => {
+        if (busy) return
+        if (status === 'on') {
+          setBusy(true)
+          try {
+            window.localStorage.setItem(NOTIFY_KEY, '0')
+          } catch {
+            /* ignore */
+          }
+          setStatus('off')
+          setBusy(false)
+          return
+        }
+        // requestPermission 必须同步发生在用户手势里（套在 promise .then 后会丢失
+        // 瞬态激活，部分浏览器直接按 denied 处理），所以先要权限、再注册 SW。
+        setBusy(true)
+        Notification.requestPermission()
+          .then((permission) => {
+            if (permission !== 'granted') {
+              try {
+                window.localStorage.setItem(NOTIFY_KEY, '0')
+              } catch {
+                /* ignore */
+              }
+              setStatus('denied')
+              return undefined
+            }
+            return ensureNotifyRegistration().then((registration) => {
+              if (registration === undefined) {
+                setStatus('unsupported')
+                return undefined
+              }
+              try {
+                window.localStorage.setItem(NOTIFY_KEY, '1')
+              } catch {
+                /* ignore */
+              }
+              setStatus('on')
+              // 立即回一条可见通知，确认链路通（用户点通知会聚焦回本页）。
+              registration.showNotification(T.title, { tag: 'dmb-test', body: T.notifyStateOn, data: { url: '/' } })
+            })
+          })
+          .catch(() => setStatus('unsupported'))
+          .finally(() => setBusy(false))
+      }
+
+      const stateText =
+        status === 'on' ? T.notifyStateOn : status === 'denied' ? T.notifyDenied : status === 'unsupported' ? T.notifyUnsupported : T.notifyStateOff
+      return h(
+        'div',
+        { className: 'dmb-notify' },
+        h(
+          'div',
+          { className: 'dmb-notify-row' },
+          h('div', { className: 'dmb-devices-title' }, T.notifyTitle),
+          h(
+            'button',
+            { type: 'button', className: 'dmb-btn' + (status === 'on' ? '' : ' primary'), onClick: toggle, disabled: busy },
+            status === 'on' ? T.notifyOff : T.notifyOn,
+          ),
+        ),
+        h('div', { className: 'dmb-muted' }, stateText),
+      )
+    }
+
     /** 插件详情里的设置页：回答「手机桥接现在是什么状态、怎么再配一台」。 */
     function SettingsPanel() {
       ensureStyle()
@@ -1119,6 +1329,7 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
           h(Cell, { label: T.approvalTimeout, value: timeoutText }),
           h(Cell, { label: T.clientLoaded, value: data === undefined ? '—' : String(data.clientHalf) }),
         ),
+        h(NotifyToggle, null),
         desktop
           ? h(
               'div',
