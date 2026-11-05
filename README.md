@@ -261,6 +261,48 @@ quick 隧道地址是随机的 `https://<random>.trycloudflare.com`，**每次�
 
 ---
 
+## 七、审批通知（外部推送通道）
+
+审批卡片出现时（以及新设备请求配对时），本机会把消息**推送到你配置的外部通道**——不依赖浏览器，任何手机装个对应 APP 就能收，锁屏可见、点击直达。
+
+> 为什么不用浏览器通知：Android WebView 系浏览器（夸克/UC/百度/微信内置）与 iOS 第三方浏览器根本不支持 Web 通知/推送；各家权限模型也不一致。统一走外部通道反而最省心、覆盖最广。
+
+### 7.1 配置入口
+
+**电脑端**：DSH Desktop → 设置 → 手机桥接 → **外部推送通道** → 添加通道 → 选类型 → 按面板里的步骤操作 → 保存。
+**手机端**：无需配置（它只负责显示审批卡片与决策）。
+
+面板里每种通道都带**分步配置说明**，这里再给出各通道的要点与官方链接：
+
+| 通道 | 适用 | 配置要点 | 官方地址 |
+|---|---|---|---|
+| **ntfy** | Android / iOS，推荐 | 装 APP → 订阅主题（如 `dsh-approval`）→ 面板填同名主题，服务器留空 | <https://ntfy.sh> · <https://docs.ntfy.sh> |
+| **Bark** | iOS | 装 Bark → 复制 APP 顶部的 `https://api.day.app/xxxx` → 粘贴到面板 | <https://bark.day.app> |
+| **企业微信·自建应用** | **微信**（官方 API） | work.weixin.qq.com 注册（个人可）→ 创建应用拿 AgentId/Secret → 「我的企业」拿 corpId → 「微信插件」扫码关注（消息直达微信服务通知）→ 三项填面板 | <https://developer.work.weixin.qq.com> |
+| **企业微信·群机器人** | 企业微信群 | 群设置 → 群机器人 → 添加 → 复制 Webhook（`qyapi.weixin.qq.com/.../send?key=…`）→ 填到面板 | <https://developer.work.weixin.qq.com> |
+| **飞书** | 群机器人 | 群设置 → 群机器人 → 自定义机器人 → 安全设置勾「自定义关键词」填 `审批` → 复制 Webhook → 填到面板 | <https://open.feishu.cn> |
+| **钉钉** | 群机器人 | 群设置 → 智能群助手 → 添加机器人（自定义）→ 安全设置选「自定义关键词」填 `审批` → 复制 Webhook → 填到面板 | <https://open.dingtalk.com> |
+| **Telegram** | Bot | @BotFather 建 bot 拿 Token → 给 bot 发条消息 → `getUpdates` 拿 `chat.id` → 填面板 | <https://core.telegram.org/bots> |
+| **通用 Webhook** | 任意 | 填可公网访问的 POST 接口；本机将 POST `{ "title", "body", "url" }` JSON，可选 Bearer Token | — |
+
+> **想在微信里收？** 唯一官方途径就是「企业微信自建应用 + 微信插件」：个人微信扫码即可注册企业微信（无需企业认证），创建自建应用后，在管理后台「我的企业 → 微信插件」用微信扫码关注，之后应用消息会直接出现在**微信的服务通知**里。Server酱等第三方推送因属于非官方通道、且免费额度有限，已不内置。
+
+保存后通道立即生效；面板里点「刷新」可改配置、点「删除」停用。
+
+### 7.2 消息内容
+
+- **审批**：标题「工具审批」，正文「有工具调用等待你的审批：<工具名>」，附桥接页链接。
+- **配对**：标题「配对请求」，正文「设备「<设备名>」请求接入」，附链接。
+- 点击通知里的链接（或从 APP 打开）即可直达桥接页处理。
+
+### 7.3 限制与注意
+
+- 外部通道由**本机**发起 HTTP 请求，需要能访问对应服务（ntfy.sh / qyapi.weixin.qq.com / 各群机器人域名）。
+- 企业微信自建应用的 access_token 由本机缓存（约 2 小时，失效自动重取）；Secret 只保存在本机 `push.json`（0600）。
+- 通道配置存在本机 `~/.dsh/dsh-mobile-bridge/push.json`（权限 0600），不随配对迁移。
+
+---
+
 ## 八、目录结构
 
 ```
@@ -274,6 +316,7 @@ lib/host-login.js      宿主登录交换与 cookie 续期
 lib/cloudflared.js     隧道管理（quick / token、自动重启、健康探测）
 lib/tunnel.js          对外地址探测（含 Tailscale / LAN）
 lib/events.js          设备在线状态 + SSE 推送总线
+lib/push.js            外部推送通道（ntfy/Bark/企业微信自建应用/企业微信·飞书/钉钉群机器人/Telegram/通用 webhook）
 lib/index-inject.js    移动端注入（viewport / polyfill / PWA）
 ```
 

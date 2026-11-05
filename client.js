@@ -150,42 +150,15 @@ window.__ModuleLoader__.load({
       linkLost: ZH
         ? '连接已中断：隧道地址可能已更换。请刷新页面；仍失败就回电脑上重新生成配对码并扫码。'
         : 'Connection lost: the tunnel address may have changed. Refresh; if it persists, re-pair from the desktop.',
-      notifyTitle: ZH ? '审批系统通知' : 'Approval notifications',
-      notifyOn: ZH ? '开启' : 'Enable',
-      notifyOff: ZH ? '关闭' : 'Disable',
-      notifyStateOn: ZH ? '已开启：审批卡片出现时推送系统通知。' : 'On: a system notification fires when an approval card appears.',
-      notifyStateOff: ZH
-        ? '已关闭。开启后会请求系统通知权限（仅在你点击时请求）。'
-        : 'Off. Enabling asks for the notification permission (only on your tap).',
-      notifyDenied: ZH
-        ? '浏览器已拒绝通知权限：请在系统/浏览器设置里允许本站通知后重试。'
-        : 'Notification permission was denied: allow notifications for this site in browser settings, then retry.',
-      notifyUnsupported: ZH
-        ? '此浏览器不支持网页通知（需要 HTTPS + Service Worker；iOS 需先「添加到主屏幕」）。'
-        : 'This browser does not support web notifications (HTTPS + SW required; iOS must Add to Home Screen first).',
-      notifyBody: ZH ? '有工具调用等待你的审批' : 'A tool call is waiting for your approval',
-      notifyPairBody: ZH ? '有设备请求配对接入' : 'A device is asking to pair',
-      pushActive: ZH ? '后台推送：已登记（浏览器关闭也能收到）。' : 'Background push: registered (works with the browser closed).',
-      pushReady: ZH
-        ? '后台推送：此浏览器支持，下次开启通知时一并登记。'
-        : 'Background push: supported, registers next time you enable notifications.',
-      pushAbsent: ZH
-        ? '后台推送：此浏览器不支持（WebView/无 Push API）。页面内通知与外部通道仍可用。'
-        : 'Background push: unsupported (WebView / no Push API). In-page notifications and external channels still work.',
-      channelTitle: ZH ? '外部推送通道（全浏览器兜底）' : 'External push channels (fallback for every browser)',
+      channelTitle: ZH ? '外部推送通道（审批通知）' : 'External push channels (approval notifications)',
       channelHint: ZH
-        ? '审批/配对事件会 POST 到你配置的通道 APP（ntfy/Bark/飞书/钉钉/企业微信/Telegram/通用 webhook）。不依赖浏览器，任何手机都能收。'
-        : 'Approval/pairing events POST to your channel app (ntfy/Bark/Feishu/DingTalk/WeCom/Telegram/generic webhook). Browser-independent — works on any phone.',
+        ? '审批/配对产生时，本机把消息推送到这里配置的通道 APP。不依赖浏览器，任何手机都能收。每个通道展开后有具体配置步骤。'
+        : 'When an approval or pairing request is created, this machine pushes a message to the channel apps configured here. Browser-independent - any phone receives it. Each channel lists concrete setup steps.',
       channelAdd: ZH ? '添加通道' : 'Add channel',
-      channelType: ZH ? '类型' : 'Type',
       channelSave: ZH ? '保存' : 'Save',
       channelRemove: ZH ? '删除' : 'Remove',
       channelSaved: ZH ? '已保存。' : 'Saved.',
-      channelFieldTopic: ZH ? '主题（订阅名）' : 'Topic',
-      channelFieldServer: ZH ? '服务器（可选，默认 ntfy.sh）' : 'Server (optional, default ntfy.sh)',
-      channelFieldUrl: ZH ? 'Webhook / 推送 URL' : 'Webhook / push URL',
-      channelFieldToken: ZH ? 'token（可选）' : 'token (optional)',
-      channelFieldChatId: ZH ? 'chat_id' : 'chat_id',
+      channelClose: ZH ? '取消' : 'Cancel',
     }
 
     const CSS = `
@@ -272,6 +245,8 @@ window.__ModuleLoader__.load({
 .dmb-notify{margin-top:16px;border-top:1px solid rgba(127,127,127,.25);padding-top:14px}
 .dmb-notify-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .dmb-notify-row .dmb-btn{width:auto;max-width:none;margin-top:0;min-height:36px;padding:6px 14px}
+.dmb-steps{margin:8px 0 10px;padding-left:20px;font-size:12px;color:var(--dsw-alias-label-tertiary,#666);line-height:1.6}
+.dmb-steps li{margin-bottom:4px;overflow-wrap:anywhere}
 /* 窄屏设置抽屉：改成「列表 → 详情」两级导航（逻辑见 installSettingsNav）。
    宿主的设置抽屉是「左导航 + 右内容」双栏固定布局，360dp 下导航吃掉大半宽度、
    内容只剩一点点，文字叠在一起。窄屏下这里改为：
@@ -407,183 +382,11 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
     }
 
     /**
-     * 审批系统通知：手机浏览器在锁屏/切后台时也能看到「有审批待处理」。
-     *
-     * 权限模型：只在用户点击设置面板开关（用户手势）时请求 Notification.permission，
-     * 绝不在页面加载时自动弹。开关状态记在 localStorage（键 dmb_notify）。
-     * 发送路径：Android/桌面 Chrome 走 SW registration.showNotification()（页面直接
-     * new Notification() 在 Android 上是 TypeError）；不支持时开关上明确提示原因。
-     * 去重：SSE 重连会重放未决审批（replayRequests），按 requestId/confirmId 去重。
-     * 生命周期：approval-resolved / pair-request-resolved 时关闭对应通知，避免死通知。
+     * 审批通知统一走「外部推送通道」（设置面板 → 外部推送通道）。
+     * 桌面端在审批/配对产生时 POST 到已配置通道（ntfy/Bark/企业微信自建应用/飞书/钉钉/企业微信/Telegram/通用 webhook），
+     * 手机端只做审批交互，不再发浏览器内通知（Android WebView 系与 iOS 第三方浏览器根本不支持，
+     * 统一通道反而更省心）。
      */
-    const NOTIFY_KEY = 'dmb_notify'
-    let notifyRegistration = undefined
-
-    function notifyEnabled() {
-      try {
-        return window.localStorage.getItem(NOTIFY_KEY) === '1'
-      } catch {
-        return false
-      }
-    }
-
-    function notifySupported() {
-      return typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator
-    }
-
-    /** 注册 SW（幂等）。scope 必须给 '/'：页面在根路径，SW 文件在插件前缀下。 */
-    function ensureNotifyRegistration() {
-      if (!notifySupported()) return Promise.resolve(undefined)
-      if (notifyRegistration !== undefined) return Promise.resolve(notifyRegistration)
-      return navigator.serviceWorker
-        .register(BASE + '/sw.js', { scope: '/' })
-        .then((registration) => {
-          notifyRegistration = registration
-          return registration
-        })
-        .catch(() => undefined)
-    }
-
-    /** 发系统通知（SW 路径；页面正可见时由调用方保证不进到这里）。 */
-    function showApprovalNotification(kind, id, title, body) {
-      const show = (registration) => {
-        if (registration === undefined) return
-        try {
-          registration.showNotification(title, {
-            tag: 'dmb-' + kind + '-' + id,
-            body,
-            requireInteraction: true,
-            data: { url: '/', kind, id },
-          })
-        } catch {
-          /* SW/通知在部分浏览器上可能瞬态失败，忽略 */
-        }
-      }
-      if (notifyRegistration !== undefined) {
-        show(notifyRegistration)
-        return
-      }
-      ensureNotifyRegistration().then(show)
-    }
-
-    function closeNotificationById(kind, id) {
-      if (notifyRegistration === undefined) return
-      notifyRegistration
-        .getNotifications()
-        .then((list) => {
-          for (const notification of list) {
-            if (notification.data?.kind === kind && notification.data?.id === id) notification.close()
-          }
-        })
-        .catch(() => undefined)
-    }
-
-    /* ---- L2 Web Push：页面关闭也能收到（桌面端主动推）。 ----
-     * 订阅状态与「页面内通知」开关共用：开启开关 → 既要页面内通知，也要登记 push 订阅。
-     * 浏览器不支持 pushManager（WebView 系/iOS 非主屏 PWA）时静默跳过 —— 这些设备由 L1/L3 覆盖。 */
-    function pushSupported() {
-      return (
-        notifySupported() &&
-        typeof window.PushManager === 'function' &&
-        typeof navigator.serviceWorker === 'object'
-      )
-    }
-
-    /** 把当前 push 订阅登记到桌面端（幂等；失败静默，L1 仍可用）。 */
-    function registerPushSubscription(registration) {
-      if (registration === undefined || registration.pushManager === undefined) return Promise.resolve(false)
-      return fetch(BASE + '/push/vapid.json', { credentials: 'same-origin' })
-        .then((response) => (response.ok ? response.json() : undefined))
-        .then((json) => {
-          const applicationServerKey = json?.publicKey
-          if (typeof applicationServerKey !== 'string' || applicationServerKey === '') return false
-          return registration.pushManager
-            .getSubscription()
-            .then((existing) => {
-              if (existing !== null) return existing
-              return registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: applicationServerKey,
-              })
-            })
-            .then((subscription) =>
-              fetch(BASE + '/push/subscribe.json', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ subscription: subscription.toJSON() }),
-              }),
-            )
-            .then(() => true)
-            .catch(() => false)
-        })
-        .catch(() => false)
-    }
-
-    /** 关闭开关时同步退订（尽力而为）。 */
-    function unregisterPushSubscription() {
-      if (!pushSupported()) return Promise.resolve(false)
-      return navigator.serviceWorker
-        .getRegistration('/')
-        .then((registration) => registration?.pushManager?.getSubscription())
-        .then((subscription) => {
-          const endpoint = subscription?.endpoint
-          const unsubscribe = subscription?.unsubscribe() ?? Promise.resolve()
-          if (typeof endpoint !== 'string') return false
-          return unsubscribe
-            .then(() =>
-              fetch(BASE + '/push/unsubscribe.json', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ endpoint }),
-              }),
-            )
-            .then(() => true)
-        })
-        .catch(() => false)
-    }
-
-    /**
-     * 通知调度：待决审批的统一入口。
-     * - 页面可见：不发（卡片就在眼前），但记入待发集合；
-     * - 页面隐藏：立即发；
-     * - visible→hidden 切换：把待发集合里的全部补发（「先来的审批在你切走后也要响」）；
-     * - 审批解决：出集合 + 关通知。
-     * pendingNotify 上限 200：超限清空（SSE 重放最多让旧 id 再响一次，可接受）。
-     */
-    const pendingNotify = new Map()
-
-    function flushPendingNotifications() {
-      if (notifyEnabled() !== true) return
-      if (typeof document !== 'undefined' && document.visibilityState === 'visible') return
-      for (const [key, entry] of pendingNotify) {
-        showApprovalNotification(entry.kind, entry.id, entry.title, entry.body)
-        pendingNotify.delete(key)
-      }
-    }
-
-    function trackPendingNotification(kind, id, toolName, bodyPrefix) {
-      const key = kind + ':' + id
-      if (pendingNotify.has(key)) return
-      const entry = { kind, id, title: T.title, body: `${bodyPrefix}\n${toolName}` }
-      if (kind === 'pair') {
-        entry.title = T.pairRequestTitle
-        entry.body = T.notifyPairBody
-      }
-      pendingNotify.set(key, entry)
-      if (pendingNotify.size > 200) pendingNotify.clear()
-      flushPendingNotifications()
-    }
-
-    function releasePendingNotification(kind, id) {
-      pendingNotify.delete(kind + ':' + id)
-      closeNotificationById(kind, id)
-    }
-
-    if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', flushPendingNotifications, { passive: true })
-    }
 
     function useApprovalFeed() {
       const [items, setItems] = react.useState([])
@@ -614,12 +417,8 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
               setItems((previous) =>
                 previous.some((entry) => entry.requestId === request.requestId) ? previous : [...previous, request],
               )
-              // 系统通知：后台/锁屏时提醒有审批待处理（按 requestId 去重，SSE 重连重放不重复通知）。
-              // 页面可见时不发（卡片就在眼前）；但把 id 记为「未发通知」，待 visible→hidden 时补发。
-              trackPendingNotification('approval', request.requestId, request.toolName || 'tool', T.notifyBody)
             } else if (message.type === 'approval-resolved') {
               setItems((previous) => previous.filter((entry) => entry.requestId !== message.requestId))
-              releasePendingNotification('approval', message.requestId)
             } else if (message.type === 'pair-request' && message.confirmId) {
               // broadcastLoopback 只发桌面；手机不会收到配对请求卡片
               setPairRequests((previous) =>
@@ -627,9 +426,8 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
                   ? previous
                   : [...previous, message],
               )
-              trackPendingNotification('pair', message.confirmId, T.pairRequestTitle, T.notifyPairBody)            } else if (message.type === 'pair-request-resolved') {
+            } else if (message.type === 'pair-request-resolved') {
               setPairRequests((previous) => previous.filter((entry) => entry.confirmId !== message.confirmId))
-              releasePendingNotification('pair', message.confirmId)
             }
           }
           source.onerror = () => {
@@ -1297,111 +1095,22 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
       return h('div', { className: 'dmb-cell' }, props.label, h('b', null, props.value))
     }
 
-    /**
-     * 审批系统通知开关（手机/桌面都显示）。
-     * 权限请求只发生在这次点击里（用户手势）；页面加载时绝不自动弹权限框。
-     */
-    function NotifyToggle() {
-      // status: 'off' | 'on' | 'denied' | 'unsupported'
-      const [status, setStatus] = react.useState(() => (notifySupported() ? (notifyEnabled() ? 'on' : 'off') : 'unsupported'))
-      // push 层能力单独展示：'no' | 'yes' | 'active'（已登记订阅）
-      const [push, setPush] = react.useState(() => (pushSupported() ? 'yes' : 'no'))
-      const [busy, setBusy] = react.useState(false)
-
-      // 开着时顺带确认 push 订阅在册（页面加载后.effect 一次，避免开关开了但订阅丢失）。
-      react.useEffect(() => {
-        if (status !== 'on' || pushSupported() === false) return
-        let alive = true
-        ensureNotifyRegistration().then((registration) => {
-          if (alive !== true || registration === undefined) return
-          registration.pushManager
-            .getSubscription()
-            .then((subscription) => setPush(subscription !== null ? 'active' : 'yes'))
-            .catch(() => undefined)
-        })
-        return () => {
-          alive = false
-        }
-      }, [status])
-
-      const toggle = () => {
-        if (busy) return
-        if (status === 'on') {
-          setBusy(true)
-          try {
-            window.localStorage.setItem(NOTIFY_KEY, '0')
-          } catch {
-            /* ignore */
-          }
-          setStatus('off')
-          unregisterPushSubscription().finally(() => setBusy(false))
-          return
-        }
-        // requestPermission 必须同步发生在用户手势里（套在 promise .then 后会丢失
-        // 瞬态激活，部分浏览器直接按 denied 处理），所以先要权限、再注册 SW。
-        setBusy(true)
-        Notification.requestPermission()
-          .then((permission) => {
-            if (permission !== 'granted') {
-              try {
-                window.localStorage.setItem(NOTIFY_KEY, '0')
-              } catch {
-                /* ignore */
-              }
-              setStatus('denied')
-              return undefined
-            }
-            return ensureNotifyRegistration().then((registration) => {
-              if (registration === undefined) {
-                setStatus('unsupported')
-                return undefined
-              }
-              try {
-                window.localStorage.setItem(NOTIFY_KEY, '1')
-              } catch {
-                /* ignore */
-              }
-              setStatus('on')
-              // L2：顺带登记 Web Push 订阅（页面关闭也能收）。失败不阻塞 —— L1 已生效。
-              registerPushSubscription(registration).then((ok) => {
-                if (ok) setPush('active')
-              })
-              // 立即回一条可见通知，确认链路通（用户点通知会聚焦回本页）。
-              registration.showNotification(T.title, { tag: 'dmb-test', body: T.notifyStateOn, data: { url: '/' } })
-            })
-          })
-          .catch(() => setStatus('unsupported'))
-          .finally(() => setBusy(false))
-      }
-
-      const stateText =
-        status === 'on' ? T.notifyStateOn : status === 'denied' ? T.notifyDenied : status === 'unsupported' ? T.notifyUnsupported : T.notifyStateOff
-      const pushText = pushSupported()
-        ? push === 'active'
-          ? T.pushActive
-          : T.pushReady
-        : T.pushAbsent
-      return h(
-        'div',
-        { className: 'dmb-notify' },
-        h(
-          'div',
-          { className: 'dmb-notify-row' },
-          h('div', { className: 'dmb-devices-title' }, T.notifyTitle),
-          h(
-            'button',
-            { type: 'button', className: 'dmb-btn' + (status === 'on' ? '' : ' primary'), onClick: toggle, disabled: busy },
-            status === 'on' ? T.notifyOff : T.notifyOn,
-          ),
-        ),
-        h('div', { className: 'dmb-muted' }, stateText),
-        h('div', { className: 'dmb-muted' }, pushText),
-      )
+    /** 通道字段中文标签（presets 下发的 fields 是英文键名，输入框提示需要本地化）。 */
+    const FIELD_LABELS = {
+      topic: ZH ? '主题（订阅名）' : 'Topic',
+      server: ZH ? '服务器（可选，默认 ntfy.sh）' : 'Server (optional, default ntfy.sh)',
+      corpId: ZH ? '企业 ID (corpId)' : 'Corp ID',
+      agentId: ZH ? '应用 AgentId' : 'Agent ID',
+      secret: ZH ? '应用 Secret' : 'Secret',
+      toUser: ZH ? '接收人（留空=@all）' : 'Recipient (empty = @all)',
+      url: ZH ? 'Webhook / 推送地址' : 'Webhook / push URL',
+      token: ZH ? 'Bot Token' : 'Bot Token',
+      chatId: ZH ? 'chat_id' : 'chat_id',
     }
 
     /**
      * L3 外部通道配置卡（仅桌面端显示：手机上是「填 URL 的人」的对端）。
-     * 每条通道 = 类型 + 字段。保存即生效（notify.setChannel 落盘 push.json）。
+     * 每条通道 = 类型 + 字段 + 配置步骤。保存即生效（notify.setChannel 落盘 push.json）。
      */
     function ChannelCard() {
       const [channels, setChannels] = react.useState(undefined) // { name: { fields, enabled } }
@@ -1501,10 +1210,20 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
               null,
               h('div', { className: 'dmb-devices-title' }, presetOf(editing.channel)?.label ?? editing.channel),
               h('div', { className: 'dmb-muted' }, presetOf(editing.channel)?.hint ?? ''),
+              // 具体配置步骤（来自服务端 presets[].steps，中文/英文随 locale）。
+              (presetOf(editing.channel)?.steps ?? []).length > 0
+                ? h(
+                    'ol',
+                    { className: 'dmb-steps' },
+                    (presetOf(editing.channel)?.steps ?? []).map((step, index) =>
+                      h('li', { key: index }, step),
+                    ),
+                  )
+                : null,
               (presetOf(editing.channel)?.fields ?? []).map((field) =>
                 h('input', {
                   key: field,
-                  placeholder: field,
+                  placeholder: FIELD_LABELS[field] ?? field,
                   value: editing.fields[field] ?? '',
                   onInput: (event) => setEditing({ ...editing, fields: { ...editing.fields, [field]: event.target.value } }),
                 }),
@@ -1513,7 +1232,7 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
                 'div',
                 { className: 'dmb-device-actions' },
                 h('button', { type: 'button', className: 'dmb-btn primary', onClick: save, disabled: busy }, T.channelSave),
-                h('button', { type: 'button', className: 'dmb-btn', onClick: () => setEditing(undefined) }, T.reject),
+                h('button', { type: 'button', className: 'dmb-btn', onClick: () => setEditing(undefined) }, T.channelClose),
               ),
             ),
         note ? h('div', { className: 'dmb-muted' }, note) : null,
@@ -1572,7 +1291,6 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
           h(Cell, { label: T.approvalTimeout, value: timeoutText }),
           h(Cell, { label: T.clientLoaded, value: data === undefined ? '—' : String(data.clientHalf) }),
         ),
-        h(NotifyToggle, null),
         desktop
           ? h(
               'div',

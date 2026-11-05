@@ -160,8 +160,8 @@ export function apply(ctx, raw) {
   const clientHello = { count: 0, lastAt: 0, href: undefined, note: undefined }
 
   // 审批桥接：Host 侧唯一需要真正参与宿主逻辑的模块。
-  // 全局通知调度器（L2 Web Push + L3 外部通道中继）：审批/配对产生时主动推送，
-  // 手机浏览器完全关闭也能收到 —— 覆盖 WebView 系浏览器与 iOS 第三方浏览器。
+  // 通知调度器：审批/配对产生时 POST 到用户配置的外部推送通道（ntfy/Bark/企业微信自建应用/飞书/
+  // 钉钉/企业微信/Telegram/通用 webhook），不依赖浏览器 —— 任何手机装个 APP 就能收。
   const notify = createNotifyDispatcher({
     storeDir: storeDirHint,
     log,
