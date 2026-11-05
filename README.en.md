@@ -10,7 +10,6 @@
 
 <p align="center">
   <img src="docs/screenshots/cover.png" width="300" alt="Remotely use DSH Desktop from your phone: QR pairing, streaming replies, tool approvals" />
-  &nbsp;&nbsp;
   <img src="docs/screenshots/demo.gif" width="220" alt="Demo: QR pairing → session list → streaming → tool approval → done" />
 </p>
 
