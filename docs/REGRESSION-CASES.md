@@ -15,7 +15,7 @@
    - 失效症状：页面 302 → `/pair`、插件样式/脚本全部缺失；
    - 重配：从宿主端口 `GET /pairing.json` 取码 → `POST /pair`（**打宿主端口，不打 edge**——edge 对配对限速 20/min，超限封 10min）→ 立即把 Set-Cookie 存回 `.device.json`；
    - 设备名额满（5/5）：`POST /devices/revoke {deviceId}`（宿主端口，loopback）撤销废弃测试设备。
-3. **Playwright**：本机无 npm 安装，`await import('file:///D:/Hermes/hermes-agent/node_modules/playwright/index.mjs')` + 系统 Chrome `C:/Program Files/Google/Chrome/Application/chrome.exe`；移动上下文 360×740、`isMobile:true, hasTouch:true`、Android UA；cookie 注入 domain=127.0.0.1。
+3. **Playwright**：本机无 npm 安装，`await import('file:///<playwright安装目录>/node_modules/playwright/index.mjs')` + 系统 Chrome `C:/Program Files/Google/Chrome/Application/chrome.exe`；移动上下文 360×740、`isMobile:true, hasTouch:true`、Android UA；cookie 注入 domain=127.0.0.1。
 
 ## 1. Case 总表（26 条）
 

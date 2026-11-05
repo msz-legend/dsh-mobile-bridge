@@ -1,7 +1,7 @@
 # 回归测试方案 — dsh-mobile-bridge v0.5.0（2026-11-05）
 
 > 触发：DSH 桌面端升级导致移动 Web 端连续两轮 S1（DMB-017/018）。本轮以「宿主 UI 新版本（drawer 布局）」为基线做全功能回归。
-> 环境：DSH Desktop 宿主 webServer 127.0.0.1:50491；edge 127.0.0.1:8787（LAN 192.168.0.110:8787）；publicBase https://dshmobile.dpdns.org（token 隧道，serviceManaged）；设备 5/5，在线 2。
+> 环境：DSH Desktop 宿主 webServer 127.0.0.1:50491；edge 127.0.0.1:8787（LAN <本机LAN IP>:8787）；publicBase https://dsh.example.com（token 隧道，serviceManaged）；设备 5/5，在线 2。
 > 工具：Playwright（系统 Chrome）360×740 触屏上下文（isMobile/hasTouch）经 edge 访问；配对 cookie 复用 baseline3/.device.json（edge 配对限速 20/min）。
 
 ## 一、被测功能面 → Case 映射
@@ -30,7 +30,7 @@
 | 体验 | UX-02 | 触屏按压反馈（:active brightness） | P2 | computed style 差分 |
 | 体验 | UX-03 | 提问卡片窄屏铺满（wnLwla 修复回归） | P1 | 注入卡片后宽度断言 |
 | 体验 | UX-04 | PWA 元数据（viewport/theme-color media/manifest） | P2 | index-inject 静态断言 |
-| 稳定 | STB-01 | 隧道固定域名可达（publicBase 200/302） | P0 | HTTPS GET dshmobile.dpdns.org |
+| 稳定 | STB-01 | 隧道固定域名可达（publicBase 200/302） | P0 | HTTPS GET <固定域名> |
 | 稳定 | STB-02 | 桌面（1440）无副作用：无浮层残留/无 pageerror | P0 | 1440×900 上下文走查 |
 | 稳定 | STB-03 | 单测/语法门禁 | P0 | npm run check + npm test |
 

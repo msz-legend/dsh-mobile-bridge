@@ -12,7 +12,7 @@
         # edge 监听端口（Tailscale serve 或局域网直连都指向它）。
         edgePort: 8787
         # 监听地址：默认只绑 loopback，靠 Tailscale serve 外出。
-        # 想让局域网内手机直连（不装 Tailscale）就改成你本机的 LAN IP，例如 192.168.0.108。
+        # 想让局域网内手机直连（不装 Tailscale）就改成你本机的 LAN IP，例如 192.168.1.100。
         edgeHost: '127.0.0.1'
         # 留空 = 自动探测（先试 cloudflared 隧道，再试 tailscale，最后退回 LAN 地址）。
         # 装了 Tailscale 后可显式写成 https://<machine>.<tailnet>.ts.net

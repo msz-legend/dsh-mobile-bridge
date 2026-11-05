@@ -6,3 +6,24 @@ Thumbs.db
 # 推广素材与内部文档（仅本地，不入库）
 marketing/
 promotion/
+
+# 本地私有产物（含个人信息 / 凭据，仅本地，不入库）
+.tmp/
+baseline/
+baseline3/
+codex-tmp/
+device-shots/
+shots/
+e2e/shots/
+/baseline-ios-pairing-qr.png
+/FIX-PLAN-3.md
+/FIX-REPORT-3.md
+/T1-EXECUTION-IOS.md
+/TEST-PLAN.md
+/TEST-PLAN-IOS.md
+/TEST-REPORT.md
+/TEST-REPORT-3-UI-UX.md
+/e2e/device-check.mjs
+/e2e/fix3-pair-render.mjs
+/e2e/fix3-verify.mjs
+/test/auto-approve.test.mjs

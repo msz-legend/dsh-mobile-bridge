@@ -6,9 +6,10 @@ const { chromium } = await import('file:///D:/Hermes/hermes-agent/node_modules/p
 const results = []
 const rec = (id, pass, detail) => { results.push({ id, pass, detail }); console.log(`${pass ? 'PASS' : 'FAIL'} ${id}: ${detail}`) }
 
-// STB-01: 固定域名可达
+// STB-01: 固定域名可达（固定域名已脱敏，默认示例域名；真实回归用环境变量 DMB_PUBLIC_BASE 指定）
 try {
-  const r = await fetch('https://dshmobile.dpdns.org/plugins/dsh-mobile-bridge/status', { redirect: 'manual' })
+  const publicBase = process.env.DMB_PUBLIC_BASE || 'https://dsh.example.com'
+  const r = await fetch(`${publicBase}/plugins/dsh-mobile-bridge/status`, { redirect: 'manual' })
   rec('STB-01', r.status === 200, `publicBase status=${r.status}`)
 } catch (e) { rec('STB-01', false, `publicBase unreachable: ${e.message}`) }
 

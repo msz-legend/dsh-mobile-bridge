@@ -226,11 +226,11 @@ quick 隧道地址是随机的 `https://<random>.trycloudflare.com`，**每次�
 
 ### D. 完整实战：0 元拿到永久固定域名 + 开机常驻（实测记录）
 
-下面是 **2026-11 实测跑通**的完整路径，全程免费（域名 + Cloudflare + 隧道 + 系统服务均 0 元），最终得到形如 `https://dshmobile.dpdns.org` 的永久地址，Windows 服务托管隧道、开机自启、与 DSH/Desktop 重启完全解耦。
+下面是 **2026-11 实测跑通**的完整路径，全程免费（域名 + Cloudflare + 隧道 + 系统服务均 0 元），最终得到形如 `https://dsh.example.com` 的永久地址，Windows 服务托管隧道、开机自启、与 DSH/Desktop 重启完全解耦。
 
 **① 申请免费域名（DigitalPlat，约 10 分钟）**
 1. 打开 `https://dash.digitalplat.org/` 用邮箱注册，完成**账户验证**（要求 GitHub OAuth，防滥用）。
-2. 域名注册 → DigitalPlat Domains：填前缀（如 `dshmobile`）+ 后缀 → 勾条款 → 检查可用性 → 选「**稍后配置**」（先注册、NS 之后改）→ 注册。
+2. 域名注册 → DigitalPlat Domains：填前缀（如 `dsh`）+ 后缀 → 勾条款 → 检查可用性 → 选「**稍后配置**」（先注册、NS 之后改）→ 注册。
 3. ⚠️ **`.us.kg` 目前暂停向免费账户开放**（提示需订阅计划）；免费可用后缀有 `.dpdns.org` / `.xx.kg` / `.qzz.io` / `.qd.je`，效果等同。免费名额每账户 1 个，域名「正常 · 永久」。
 
 **② 注册 Cloudflare 并添加站点（免费）**

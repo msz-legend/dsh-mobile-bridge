@@ -1,6 +1,6 @@
 # 回归测试报告 — dsh-mobile-bridge v0.5.0（2026-11-05）
 
-> 对应方案：[REGRESSION-PLAN-4.md](REGRESSION-PLAN-4.md)。环境：DSH Desktop（宿主 webServer :50491）+ edge :8787 + token 隧道 dshmobile.dpdns.org；Playwright 360×740 触屏（经 edge）与 1440×900（经 edge）。
+> 对应方案：[REGRESSION-PLAN-4.md](REGRESSION-PLAN-4.md)。环境：DSH Desktop（宿主 webServer :50491）+ edge :8787 + token 隧道 dsh.example.com；Playwright 360×740 触屏（经 edge）与 1440×900（经 edge）。
 > 本轮共修复 1 个新发现缺陷（DMB-019，当场修复并回归），另有 2 项判定为「宿主新布局下的预期行为变化」、2 项 S4 卫生项。
 
 ## 一、结果总览
@@ -28,7 +28,7 @@
 | 体验 | UX-02 触屏按压反馈 | ✅ PASS | 真实按压 toggle → brightness(0.86)（脚本初版用 dispatchEvent 不触发 :active，属测试方法问题） |
 | 体验 | UX-03 提问卡片窄屏铺满 | ✅ PASS | wnLwla CSS 注入存在，模拟 frame 宽 360 |
 | 体验 | UX-04 PWA 元数据 | ✅ PASS | viewport/theme-color ×2(带 media)/manifest/apple-touch-icon 全部在位（初测误报为检查时机过早） |
-| 稳定 | STB-01 固定域名可达 | ✅ PASS | https://dshmobile.dpdns.org → 401(需鉴权，隧道连通) |
+| 稳定 | STB-01 固定域名可达 | ✅ PASS | https://dsh.example.com → 401(需鉴权，隧道连通) |
 | 稳定 | STB-02 桌面 1440 无副作用 | ⚠️ S4 | 无窄屏补丁生效（正确）、无 scrim/hint、0 pageerror；但桌面下 `data-dmb-overlay` 属性残留在侧栏根（无视觉影响，CSS 全部 gated by `data-dmb-narrow`）。卫生项，建议 installSidebarState 在非窄屏时清理属性 |
 | 稳定 | STB-03 门禁（check + test） | ✅ PASS | 全绿 |
 

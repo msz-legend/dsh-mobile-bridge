@@ -1,8 +1,8 @@
 # Handoff — dsh-mobile-bridge 会话接管
 
 > 更新时间：2026-11-01 13:15 CST
-> 接管自 ZCode 会话 `sess_8e01ea64-580c-4d08-a918-799a336fc3a1`（ZCode GLM-5.3-Flash）
-> 工作目录：`C:\Users\Administrator\Documents\deepseek-harness\default-workspace\dsh-mobile-bridge`
+> 接管自 ZCode 会话（ZCode GLM-5.3-Flash）
+> 工作目录：本仓库根目录（dsh-mobile-bridge）
 > 仓库：https://github.com/msz-legend/dsh-mobile-bridge (main @ `d381990`，已推送)
 
 ## 1. 项目一句话
@@ -17,10 +17,10 @@ DSH Mobile Bridge：让手机浏览器在「不重建前端」的前提下接入
 | git HEAD | `9745e7a` fix: detect narrow by screen.width（= origin/main） |
 | 工作树 | 干净 |
 | 测试 | `npm test` → 13 + 4 + 4 checks 全绿 |
-| edge | 监听 127.0.0.1:8787 + 192.168.0.108:8787 |
+| edge | 监听 127.0.0.1:8787 + <本机LAN IP>:8787 |
 | 宿主 webServer | 127.0.0.1:50438 |
 | cloudflared | quick tunnel running（地址随重启变化） |
-| 激活设备 | 1（真机 KKG-AN00 已配对） |
+| 激活设备 | 1（真机 Android 已配对） |
 
 ## 3. 已完成的工作（按提交）
 
@@ -95,7 +95,7 @@ DSH Mobile Bridge：让手机浏览器在「不重建前端」的前提下接入
 ## 7. 快速命令
 
 ```sh
-cd C:\Users\Administrator\Documents\deepseek-harness\default-workspace\dsh-mobile-bridge
+cd <本仓库路径>
 npm run check && npm test
 git status --porcelain && git log --oneline -3
 # 取当前配对码 / 公网地址
