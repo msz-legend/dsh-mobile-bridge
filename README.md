@@ -10,7 +10,6 @@
 
 <p align="center">
   <img src="docs/screenshots/cover.png" width="300" alt="手机远程接入 DSH Desktop：扫码配对 · 流式输出 · 工具审批" />
-  &nbsp;&nbsp;
   <img src="docs/screenshots/demo.gif" width="220" alt="演示：扫码配对 → 会话列表 → 流式输出 → 工具审批 → 回答完成" />
 </p>
 
