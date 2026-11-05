@@ -2,7 +2,7 @@
 
 > 用途：**DSH 桌面端每次升级后**，对移动 Web 端（dsh-mobile-bridge）做全功能回归。历史教训：宿主 UI 升级已连续引发 DMB-017/018/019 三轮 S1（侧栏 drawer 化、设置抽屉重构、层叠上下文陷阱），宿主升级后必跑本 Case 库。
 > 首次制定：2026-11-05（R4，v0.5.0 基线）。Case ID 稳定递增，新增缺陷回归时按域追加编号。
-> 配套产物：方案/报告 = `REGRESSION-PLAN-4.md` / `TEST-REPORT-4-REGRESSION.md`；可执行脚本 = `e2e/reg4-batch1..4-*.mjs`。
+> 可执行脚本 = `e2e/reg4-batch1..4-*.mjs`。
 
 ---
 

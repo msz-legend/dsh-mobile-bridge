@@ -56,8 +56,6 @@
 
 ## R3 修复轮状态（2026-11-03）
 
-> 完整说明见 [FIX-REPORT-R3.md](FIX-REPORT-R3.md)。
-
 | 缺陷 | 修复 | 生效条件 | 验证 |
 |---|---|---|---|
 | DMB-010 暗色审批卡对比度 2.15/2.55:1 | 拒绝改实底红#dc2626+白字；pattern/摘要/计时器换暗色配对 | client.js → 刷新即生效 | 暗色卡 0 违例（原 3 条） |
@@ -176,7 +174,7 @@
   后 panelRow 252×36、regionArea 高 482（probe/diag-sidebar3.mjs、diag-sidebar4.mjs）。
 - 修复：mark() 增加反向遍历撤销过期标记 + document 捕获 click 后 120/520ms 延迟复查。
 - 状态：已修复（2026-11-01 真机复测通过）。证据：展开态 panelRow 36px（Playwright）/39px（真机）、
-  收起后 rail 图标恢复 36×36 并重新打标；详见 FIX-REPORT-3.md。
+  收起后 rail 图标恢复 36×36 并重新打标。
 
 ### DMB-008：侧栏浮层 100vmax scrim 不区分展开/收起态，主窗口永久蒙灰
 
@@ -192,7 +190,7 @@
   且 z-index 降为 1050（原 2147481900 会盖住宿主 z=1100 的账号菜单弹层）；
   另在设置抽屉 bind 成功时自动收起侧栏。
 - 状态：已修复（2026-11-01 真机复测通过）。证据：收起态 rail static + box-shadow none
-  （Playwright 与真机一致）；设置打开后浮层移除、抽屉 312px；详见 FIX-REPORT-3.md。
+  （Playwright 与真机一致）；设置打开后浮层移除、抽屉 312px。
 
 ## S2
 
@@ -247,7 +245,7 @@
 - 状态：复测中。备注：Codex 测量与 CDP 复测结论冲突，疑为动画中间态，待真机复测裁决。
 - 复测结果（2026-11-01）：由 DMB-007/DMB-008 的修复闭环。真机展开侧栏后会话列表可见
   （regionArea 314px）、收起后主内容无蒙层；grid 挤压场景随展开态改浮层 + 收列消失。
-  证据：device-shots/fix3-sidebar-open.png、fix3-sidebar-collapsed.png，详见 FIX-REPORT-3.md。
+  证据：device-shots/fix3-sidebar-open.png、fix3-sidebar-collapsed.png。
 - 步骤：关闭设置后，通过uiautomator获取“打开侧边栏”bounds=[30,296][138,404]，ADB tap(84,350)，等待1.6秒。
 - 实际：gridTemplateColumns=280px 80px 0px；sidebarCol position=static；主内容80/360=22.22%；右侧文字逐字换行，发送按钮x=360超出视口。
 - 期望：侧栏fixed覆盖层，主内容宽度至少324px。

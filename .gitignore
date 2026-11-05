@@ -16,13 +16,6 @@ device-shots/
 shots/
 e2e/shots/
 /baseline-ios-pairing-qr.png
-/FIX-PLAN-3.md
-/FIX-REPORT-3.md
-/T1-EXECUTION-IOS.md
-/TEST-PLAN.md
-/TEST-PLAN-IOS.md
-/TEST-REPORT.md
-/TEST-REPORT-3-UI-UX.md
 /e2e/device-check.mjs
 /e2e/fix3-pair-render.mjs
 /e2e/fix3-verify.mjs
