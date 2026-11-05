@@ -9,18 +9,28 @@
 > [English](./README.en.md) | 中文
 
 <p align="center">
-  <img src="docs/screenshots/cover.png" width="420" alt="手机远程接入 DSH Desktop：扫码配对 · 流式输出 · 工具审批" />
-  <br/>
-  <img src="docs/screenshots/demo.gif" width="240" alt="演示：扫码配对 → 会话列表 → 流式输出 → 工具审批 → 回答完成" />
+  <img src="docs/screenshots/cover.png" width="300" alt="手机远程接入 DSH Desktop：扫码配对 · 流式输出 · 工具审批" />
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/demo.gif" width="220" alt="演示：扫码配对 → 会话列表 → 流式输出 → 工具审批 → 回答完成" />
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/06-m-pairing.png" width="170" alt="手机扫码配对" />
-  <img src="docs/screenshots/08-m-approval.png" width="170" alt="手机工具审批卡片" />
-  <img src="docs/screenshots/09-desktop-bridge-settings.png" width="330" alt="桌面桥接配置" />
-  <img src="docs/screenshots/11-desktop-fixed-domain.png" width="330" alt="桌面固定域名接入" />
+  <sub><b>手机端</b>（复用桌面同一套 Web UI）</sub><br/>
+  <img src="docs/screenshots/06-m-pairing.png" width="180" alt="扫码配对" />
+  <img src="docs/screenshots/07-m-streaming.png" width="180" alt="流式输出" />
+  <img src="docs/screenshots/08-m-approval.png" width="180" alt="工具审批卡片：仅本次 / 始终允许 / 拒绝" />
 </p>
-<p align="center"><sub>手机扫码配对 · 手机工具审批卡片 · 桌面桥接配置 · 桌面固定域名 —— 更多见 <a href="docs/screenshots/">docs/screenshots/</a>（13 张）</sub></p>
+
+<p align="center">
+  <sub><b>桌面端</b>（配对 · 设备管理 · 固定域名接入）</sub><br/>
+  <img src="docs/screenshots/12-desktop-pairing-dialog.png" width="380" alt="桌面生成配对码" />
+  <img src="docs/screenshots/10-desktop-device-management.png" width="380" alt="设备管理与撤销" />
+  <br/>
+  <img src="docs/screenshots/09-desktop-bridge-settings.png" width="380" alt="桥接配置面板" />
+  <img src="docs/screenshots/11-desktop-fixed-domain.png" width="380" alt="Cloudflare 固定域名 + 开机常驻" />
+</p>
+
+<p align="center"><sub>更多截图见 <a href="docs/screenshots/">docs/screenshots/</a>（13 张）</sub></p>
 
 <p align="center">
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-green" /></a>
