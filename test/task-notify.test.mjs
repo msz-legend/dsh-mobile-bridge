@@ -192,6 +192,13 @@ try {
     assert.match(fallback.body, /\? 第 1 轮/)
   })
 
+  await run('T13 the session- prefix is stripped so the short id is meaningful', () => {
+    const body = describeTurnEnd('session-90757a76-4e62-4ba3', 19, { kind: 'completed' }).body
+    assert.equal(body, '会话 90757a76 第 19 轮已完成')
+    const legacy = describeTurnEnd('sess-a1b2c3d4e5', 3, { kind: 'completed' }).body
+    assert.equal(legacy, '会话 sess-a1b 第 3 轮已完成')
+  })
+
   console.log(`\n${passed} checks passed`)
 } catch (error) {
   console.error('FAIL', error?.message ?? error, error?.stack ?? '')
