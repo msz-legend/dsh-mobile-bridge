@@ -43,3 +43,6 @@
         # 自定义域名；留空 = 自动识别 frpc 日志里的 >>host:port<< 或节点地址
         # （*.nyat.app / *.natfrp.cloud / frp-*.com|top），需 ≥0.51.0-sakura-14。
         sakuraDomain: ''
+        # 任务结束态外部通知：每轮 turn/end 都推一条到已配置的外部推送通道
+        # （完成/出错/中止/阻断/上限/中断/分叉全覆盖），默认开启；通知量大可关掉。
+        taskNotifyEnabled: true

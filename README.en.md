@@ -42,6 +42,7 @@ DSH Desktop's web UI only listens on `127.0.0.1`, so phones can't reach it. This
 - **Five access lanes** — SakuraFrp free tunnel (recommended for mainland China), LAN direct, cloudflared quick tunnel (zero account), Tailscale (private, WireGuard-encrypted; ⚠️ **overseas users only** — login and relay are unstable on mainland China networks), Cloudflare named tunnel (your own fixed domain, two-click setup in the settings panel).
 - **Always-on fixed address** — register the named tunnel as a Windows service so it survives reboots; a tunnel health watchdog auto-restarts dead tunnels with exponential backoff.
 - **Device management** — list bound phones (online/offline), revoke one / all, purge history; each phone gets its own token (default max 5).
+- **Task-end notifications** — every `turn/end` is pushed to the same external channels (completed / error / aborted / blocked / max-tokens / interrupted / forked), no browser needed. On by default; disable with `taskNotifyEnabled: false`.
 
 ## Quick start
 
@@ -102,6 +103,7 @@ All options are documented in the [Chinese README §4](./README.md#4-配置项).
     approvalTimeoutRemoteMs: 30000
     offlineGraceMs: 5000
     alwaysScope: 'session'  # session | global
+    taskNotifyEnabled: true  # task-end external notifications (every turn/end)
     storeDir: ''
 ```
 

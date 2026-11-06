@@ -97,4 +97,20 @@ const client = read('../client.js')
   pass('patch config: old auto-approve removed, SakuraFrp keys added, quick still default')
 }
 
+// 附加：任务结束态外部通知已接入（session/event turn/end + 七种终态 + 默认开关）。
+{
+  const index = read('../index.js')
+  const notifier = read('../lib/task-notify.js')
+  const patch = read('../cordis.patch.yml')
+  assert.match(index, /createTaskNotifier/)
+  assert.match(index, /ctx\.on\('session\/event'/)
+  assert.match(index, /taskNotifyEnabled/)
+  assert.match(notifier, /turn\/end/)
+  for (const kind of ['completed', 'error', 'aborted', 'blocked', 'max-tokens', 'interrupted', 'forked']) {
+    assert.ok(notifier.includes(`'${kind}'`), `task-notify must handle reason kind ${kind}`)
+  }
+  assert.match(patch, /taskNotifyEnabled/)
+  pass('C8 task-end external notify wired to session/event turn/end')
+}
+
 console.log(`\n${passed} checks passed`)

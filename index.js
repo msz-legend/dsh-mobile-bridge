@@ -28,6 +28,7 @@ import { createSakuraFrp } from './lib/sakurafrp.js'
 import { createHostLogin } from './lib/host-login.js'
 import { registerRoutes, DEVICE_COOKIE } from './lib/routes.js'
 import { createNotifyDispatcher } from './lib/push.js'
+import { createTaskNotifier } from './lib/task-notify.js'
 import { resolvePublicBase } from './lib/tunnel.js'
 import { installIndexInjection } from './lib/index-inject.js'
 
@@ -57,6 +58,7 @@ const DEFAULTS = {
   sakuraTunnelId: '',
   sakuraBin: 'frpc',
   sakuraDomain: '',
+  taskNotifyEnabled: true,
 }
 
 const asPositiveInt = (value, fallback) => {
@@ -89,6 +91,7 @@ function normalize(raw) {
   config.sakuraTunnelId = typeof input.sakuraTunnelId === 'string' ? input.sakuraTunnelId.trim() : ''
   config.sakuraBin = typeof input.sakuraBin === 'string' && input.sakuraBin.trim() !== '' ? input.sakuraBin.trim() : DEFAULTS.sakuraBin
   config.sakuraDomain = typeof input.sakuraDomain === 'string' ? input.sakuraDomain.trim() : ''
+  config.taskNotifyEnabled = input.taskNotifyEnabled !== false
   config.dshPort = 0
   return config
 }
@@ -201,7 +204,7 @@ export function apply(ctx, raw) {
   const clientHello = { count: 0, lastAt: 0, href: undefined, note: undefined }
 
   // 审批桥接：Host 侧唯一需要真正参与宿主逻辑的模块。
-  // 通知调度器：审批卡出现时 POST 到用户配置的外部推送通道（ntfy/Bark/企业微信自建应用/飞书/
+  // 通知调度器：审批卡出现 / 任务结束态时 POST 到用户配置的外部推送通道（ntfy/Bark/企业微信自建应用/飞书/
   // 钉钉/企业微信/Telegram/通用 webhook），不依赖浏览器 —— 任何手机装个 APP 就能收。
   const notify = createNotifyDispatcher({
     storeDir: storeDirHint,
@@ -212,6 +215,15 @@ export function apply(ctx, raw) {
   const bridge = createApprovalBridge({ config, hub, always, args, origins, log, notify })
   const disposeApproval = ctx.on('approval/request', bridge.handler, { prepend: true, global: true })
   log(`approval bridge attached (timeout local=${config.approvalTimeoutMs}ms remote=${config.approvalTimeoutRemoteMs}ms)`)
+
+  // 任务结束态通知：订阅宿主 session/event 的 turn/end（唯一带精确终态原因的事件），
+  // 把 completed/aborted/blocked/error/max-tokens/interrupted/forked 推给外部推送通道。
+  // 默认开启；taskNotifyEnabled: false 可关掉（通知量大时有用）。
+  const taskNotifier = createTaskNotifier({ notify, log })
+  const disposeTaskNotify = config.taskNotifyEnabled
+    ? ctx.on('session/event', taskNotifier.handle, { global: true })
+    : undefined
+  if (disposeTaskNotify) log('task notifier attached (session/event turn/end)')
 
   // 心跳：保持 SSE 连接与中间代理不空闲超时。
   const heartbeat = setInterval(() => hub.heartbeat(), 20_000)
@@ -388,12 +400,22 @@ export function apply(ctx, raw) {
         /* ignore */
       }
       try {
+        disposeTaskNotify?.()
+      } catch {
+        /* ignore */
+      }
+      try {
+        taskNotifier.dispose()
+      } catch {
+        /* ignore */
+      }
+      try {
         args?.dispose?.()
       } catch {
         /* ignore */
       }
     },
-    'dsh-mobile-bridge: approval bridge + timers',
+    'dsh-mobile-bridge: approval bridge + task notifier + timers',
   )
 
   return undefined
