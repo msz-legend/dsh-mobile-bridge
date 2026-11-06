@@ -9,28 +9,22 @@
 > [English](./README.en.md) | 中文
 
 <p align="center">
-  <img src="docs/screenshots/cover.png" width="300" alt="手机远程接入 DSH Desktop：密码绑定 · 流式输出 · 工具审批" />
-  &nbsp;&nbsp;
-  <img src="docs/screenshots/demo.gif" width="220" alt="演示：输入绑定密码 → 会话列表 → 流式输出 → 工具审批 → 回答完成" />
+  <img src="docs/screenshots/cover.png" width="600" alt="手机分身：密码绑定 · 复用桌面 Web UI · 工具审批" />
 </p>
 
 <p align="center">
-  <sub><b>手机端</b>（复用桌面同一套 Web UI）</sub><br/>
-  <img src="docs/screenshots/06-m-pairing.png" width="180" alt="输入绑定密码" />
-  <img src="docs/screenshots/07-m-streaming.png" width="180" alt="流式输出" />
-  <img src="docs/screenshots/08-m-approval.png" width="180" alt="工具审批卡片：仅本次 / 始终允许 / 拒绝" />
+  <sub><b>手机端</b>（浏览器输入绑定密码 → 复用桌面同一套 Web UI）</sub><br/>
+  <img src="docs/screenshots/mobile-pair.png" width="200" alt="手机绑定页：输入绑定密码" />
+  <img src="docs/screenshots/mobile-new.png" width="200" alt="手机端会话界面" />
 </p>
 
 <p align="center">
-  <sub><b>桌面端</b>（绑定密码 · 设备管理 · 固定域名接入）</sub><br/>
-  <img src="docs/screenshots/12-desktop-pairing-dialog.png" width="380" alt="桌面查看绑定密码" />
-  <img src="docs/screenshots/10-desktop-device-management.png" width="380" alt="设备管理与撤销" />
-  <br/>
-  <img src="docs/screenshots/09-desktop-bridge-settings.png" width="380" alt="手机分身设置面板" />
-  <img src="docs/screenshots/11-desktop-fixed-domain.png" width="380" alt="Cloudflare 固定域名 + 开机常驻" />
+  <sub><b>桌面端</b>（设置 → 手机分身：绑定密码 · 设备管理 · 外网接入 · 外部推送）</sub><br/>
+  <img src="docs/screenshots/desktop-settings.png" width="460" alt="手机分身设置面板" />
+  <img src="docs/screenshots/desktop-home.png" width="460" alt="DSH Desktop 主界面" />
 </p>
 
-<p align="center"><sub>更多截图见 <a href="docs/screenshots/">docs/screenshots/</a>（13 张）</sub></p>
+<p align="center"><sub>更多截图见 <a href="docs/screenshots/">docs/screenshots/</a></sub></p>
 
 <p align="center">
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-green" /></a>
@@ -38,7 +32,9 @@
   <a href="https://github.com/msz-legend/dsh-mobile-bridge/stargazers"><img alt="GitHub Stars" src="https://img.shields.io/github/stars/msz-legend/dsh-mobile-bridge?style=social" /></a>
 </p>
 
-**30 秒跑通**：把本目录作为 bundle 装进 DSH Desktop（`plugin_manager action=install_bundle target=<本目录绝对路径>`）→ 重启 Desktop 自动拉起临时隧道 → 桌面「设置 → 手机分身」查看绑定密码 → 手机打开地址输入密码即绑。想要「重启后地址不变」的固定入口，见 [§6 固定地址](#六固定地址--稳定入口解决重启后-cloudflare-报错旧截图失效)。
+**30 秒跑通**：把本目录作为 bundle 装进 DSH Desktop（`plugin_manager action=install_bundle target=<本目录绝对路径>`）→ 重启 Desktop 自动拉起临时隧道 → 桌面「设置 → 手机分身」查看绑定密码 → 手机打开地址输入密码即绑。
+
+想要「重启后地址不变」的固定入口，见 [§6 固定地址](#六固定地址--稳定入口解决重启后-cloudflare-报错旧截图失效)；国内网络推荐 [§6.A SakuraFrp 免费穿透](#a-sakurafrp-免费穿透国内推荐)。本插件已提交 [dsh.so 插件市场](https://www.dsh.so/) 审核（6/6 Acceptance、0 Critical）。
 
 DSH Desktop 的 Web 界面只监听 `127.0.0.1`，手机无法直接访问。本插件在两者之间加一道**边缘网关（edge）**：
 手机通过它加载的仍然是桌面上那份 Web UI（同源 WebSocket、同源 RPC、流式输出全部原样复用），
@@ -100,7 +96,7 @@ plugin_manager action=install_bundle target=<本目录绝对路径>
 ```
 
 或手工写进 profile 的 `dependencies`（`link:<本目录>`）与 `dsh.profile.bundles`，然后重启 Desktop。
-依赖仅一个：`qrcode`（生成访问地址二维码，缺失时降级为纯地址文本）。
+依赖仅两个：`qrcode`（生成访问地址二维码，缺失时降级为纯地址文本）与 `ws`（企业微信智能机器人的 WebSocket 长连接，官方 SDK 同款）。
 
 ### 2. 选择访问通道
 
@@ -319,6 +315,7 @@ quick 隧道地址是随机的 `https://<random>.trycloudflare.com`，**每次�
 | **Bark** | iOS | 装 Bark → 复制 APP 顶部的 `https://api.day.app/xxxx` → 粘贴到面板 | <https://bark.day.app> |
 | **企业微信·自建应用** | **微信**（官方 API） | work.weixin.qq.com 注册（个人可）→ 创建应用拿 AgentId/Secret → 「我的企业」拿 corpId → 「微信插件」扫码关注（消息直达微信服务通知）→ 三项填面板 | <https://developer.work.weixin.qq.com> |
 | **企业微信·群机器人** | 企业微信群 | 群设置 → 群机器人 → 添加 → 复制 Webhook（`qyapi.weixin.qq.com/.../send?key=…`）→ 填到面板 | <https://developer.work.weixin.qq.com> |
+| **企业微信·智能机器人** | 企业微信单聊/群聊（新版，无需 IP 白名单与公网回调） | 企微工作台 → 智能机器人 → API 模式创建 → 连接方式选「**使用长连接**」→ 记下 BotID 与 Secret（**只显示一次**）→ 先在与机器人的会话里发一条消息 → 单聊：chatId 填接收人 userid（管理后台通讯录成员详情页「账号」，机器人创建者须为超级管理员）、chatType 填 `1`；群聊：chatId 填群 chatid（机器人回调事件里获取）、chatType 填 `2` → 填面板 | <https://developer.work.weixin.qq.com/document/path/101463> |
 | **飞书** | 群机器人 | 群设置 → 群机器人 → 自定义机器人 → 安全设置勾「自定义关键词」填 `审批` → 复制 Webhook → 填到面板 | <https://open.feishu.cn> |
 | **钉钉** | 群机器人 | 群设置 → 智能群助手 → 添加机器人（自定义）→ 安全设置选「自定义关键词」填 `审批` → 复制 Webhook → 填到面板 | <https://open.dingtalk.com> |
 | **Telegram** | Bot | @BotFather 建 bot 拿 Token → 给 bot 发条消息 → `getUpdates` 拿 `chat.id` → 填面板 | <https://core.telegram.org/bots> |
@@ -337,6 +334,7 @@ quick 隧道地址是随机的 `https://<random>.trycloudflare.com`，**每次�
 ### 8.3 限制与注意
 
 - 外部通道由**本机**发起 HTTP 请求，需要能访问对应服务（ntfy.sh / qyapi.weixin.qq.com / 各群机器人域名）。
+- 企业微信智能机器人走官方 **WebSocket 长连接**主动推送（`aibot_subscribe` 鉴权 → `aibot_send_msg` 推送，Markdown 消息），**无需 IP 白名单、无需公网回调地址**；Secret 为长连接专用、只在创建时显示一次（丢失需重新生成）；官方要求先在与机器人的会话里发过至少一条消息才允许主动推送；限频 30 条/分钟、1000 条/小时。
 - 企业微信自建应用的 access_token 由本机缓存（约 2 小时，失效自动重取）；Secret 只保存在本机 `push.json`（0600）。
 - 通道配置存在本机 `~/.dsh/dsh-mobile-bridge/push.json`（权限 0600），不随绑定迁移。
 
@@ -357,7 +355,7 @@ lib/host-login.js      宿主登录交换与 cookie 续期
 lib/cloudflared.js     隧道管理（quick / token、自动重启、健康探测）
 lib/tunnel.js          对外地址探测（含 Tailscale / LAN）
 lib/events.js          设备在线状态 + SSE 推送总线
-lib/push.js            外部推送通道（ntfy/Bark/企业微信自建应用/企业微信·飞书/钉钉群机器人/Telegram/通用 webhook）
+lib/push.js            外部推送通道（ntfy/Bark/企业微信自建应用/企业微信群机器人/企业微信智能机器人/飞书/钉钉群机器人/Telegram/通用 webhook）
 lib/task-notify.js      任务结束态通知（订阅 session/event 的 turn/end → 外部推送通道）
 lib/index-inject.js    移动端注入（viewport / polyfill / PWA）
 ```
