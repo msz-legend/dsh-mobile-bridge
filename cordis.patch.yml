@@ -19,10 +19,12 @@
         publicBase: ''
         # 公网档通道：cloudflared 隧道。先 `winget install Cloudflare.cloudflared`，
         # 然后把 tunnelEnabled 改成 true，重启 Desktop 后 quick tunnel 地址
-        # （https://<random>.trycloudflare.com）会自动出现在设置页与配对二维码里。
+        # （https://<random>.trycloudflare.com）会自动出现在设置页与绑定地址二维码里。
         tunnelEnabled: true
+        # 可选值：'sakura'|'token'|'quick'（默认 'quick'，sakura 需显式开启）。
         # quick = 零账号临时隧道（每次重启换地址）；token = 远程管理的命名隧道，
-        # 需要填 tunnelToken 并显式写 publicBase（域名在 Cloudflare 后台配置）。
+        # 需要填 tunnelToken 并显式写 publicBase（域名在 Cloudflare 后台配置）；
+        # sakura = SakuraFrp 免费穿透（国内推荐），需填下面的 sakuraToken/sakuraTunnelId。
         tunnelMode: 'quick'
         tunnelToken: ''
         tunnelBin: 'C:/Program Files (x86)/cloudflared/cloudflared.exe'
@@ -32,8 +34,11 @@
         tunnelProtocol: 'http2'
         # 手机离线时审批先等一拍（SSE 重连通常在数秒内），到期仍无人再按来源分流。
         offlineGraceMs: 5000
-        # 手机/LAN 来源的配对需桌面确认；确认请求的有效期。
-        pairConfirmTtlMs: 120000
-        # 手机扫码提交配对码后跳过桌面确认弹窗、自动发设备令牌（true = 免确认）。
-        # 配对码本身仍然生效：6 位数字、5 分钟有效、限尝试次数，防扫描爆破。
-        autoApprovePairing: true
+        # SakuraFrp 免费穿透（国内推荐）：tunnelMode 设为 'sakura' 时启用，默认不启用。
+        # 访问密钥与隧道 ID 属敏感信息，仅存本机 0600 文件，不要提交到仓库。
+        sakuraToken: ''
+        sakuraTunnelId: ''
+        # frpc 可执行文件（从 https://www.natfrp.com/tunnel/download 下载）。
+        sakuraBin: 'frpc'
+        # 自定义域名；留空 = 自动识别 frpc 日志里的 *.natfrp.cloud 随机子域。
+        sakuraDomain: ''

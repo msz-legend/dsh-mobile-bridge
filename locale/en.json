@@ -1,33 +1,21 @@
 {
   "meta": {
-    "title": "DSH-Mobile",
-    "description": "Pair a phone browser with this Desktop instance: shared Web UI, streaming output, and tool-call approvals (once / always / reject)."
+    "title": "Phone Mirror",
+    "description": "Enter the binding password in your phone browser to connect to this Desktop instance: shared Web UI, streaming output, and tool-call approvals (once / always / reject)."
   },
   "pair": {
-    "title": "Pair phone · DSH Mobile Bridge",
-    "h1": "Pair your phone",
-    "hint": "Scan the QR code on the desktop, or open this URL and enter the code.",
-    "code": "Pairing code",
+    "title": "Bind Phone · Phone Mirror",
+    "h1": "Bind Phone",
+    "hint": "Enter the binding password shown on your computer to finish binding.",
+    "password": "Binding password",
     "name": "Device name (optional)",
     "url": "Address",
-    "expires": "Expires in",
-    "noCode": "No active pairing code on the desktop. On the computer, open Settings → Mobile Bridge → \"New pairing code\", then come back here.",
-    "mismatch": "The code does not match. Check the 6-digit code on the desktop screen and try again.",
-    "tooMany": "Too many wrong attempts for this code. It is now void — generate a new one on the desktop.",
-    "busy": "The pairing confirmation channel is busy. Try again shortly.",
+    "qrAlt": "Binding address QR code",
+    "wrongPassword": "Incorrect binding password",
+    "tooMany": "Too many attempts. Please try again shortly.",
+    "busy": "The binding channel is busy. Please try again shortly.",
     "limit": "Device limit reached ({max}). Revoke an old device on the desktop first.",
-    "submit": "Pair",
-    "qrAlt": "Pairing QR code",
-    "wait": {
-      "title": "Waiting for desktop approval · DSH Mobile Bridge",
-      "h1": "Waiting for desktop approval",
-      "p": "Code verified. Approve this pairing in the DSH window on your computer — this page continues automatically.",
-      "waiting": "Waiting for desktop approval…",
-      "entering": "Approved — entering…",
-      "denied": "The desktop denied this pairing.",
-      "limit": "Device limit reached. Revoke an old device on the desktop first.",
-      "expired": "Approval timed out. Refresh the pairing page on the desktop and retry."
-    }
+    "submit": "Bind"
   },
   "approval": {
     "title": "Tool approval",

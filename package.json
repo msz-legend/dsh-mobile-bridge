@@ -3,7 +3,7 @@
   "version": "0.5.0",
   "private": true,
   "type": "module",
-  "description": "用手机浏览器安全接入 DSH Desktop：扫码配对、流式回显、工具审批（once / always / reject）。",
+  "description": "用手机浏览器安全接入 DSH Desktop：密码绑定、流式回显、工具审批（once / always / reject），内置 SakuraFrp 免费穿透。",
   "main": "./index.js",
   "exports": {
     ".": "./index.js",
@@ -24,8 +24,8 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node test/approval-bridge.test.mjs && node test/cloudflared.test.mjs && node test/pairing-confirm.test.mjs && node test/device-management.test.mjs && node test/tunnel-health.test.mjs && node test/qcard-css.test.mjs && node test/tailscale.test.mjs && node test/cloudflare-setup.test.mjs && node test/push.test.mjs",
-    "check": "node --check index.js && node --check client.js && node --check lib/cloudflared.js && node --check lib/pairing.js && node --check lib/routes.js && node --check lib/tailscale.js && node --check lib/cloudflare-setup.js"
+    "test": "node test/approval-bridge.test.mjs && node test/cloudflared.test.mjs && node test/device-management.test.mjs && node test/tunnel-health.test.mjs && node test/tunnel-resolve.test.mjs && node test/qcard-css.test.mjs && node test/routes-security.test.mjs && node test/body-limit.test.mjs && node test/tailscale.test.mjs && node test/cloudflare-setup.test.mjs && node test/push.test.mjs && node test/binding.test.mjs && node test/sakurafrp.test.mjs && node test/pair-password.test.mjs && node test/sakura-routes.test.mjs && node test/static-contracts.test.mjs",
+    "check": "node --check index.js && node --check client.js && node --check lib/cloudflared.js && node --check lib/pairing.js && node --check lib/routes.js && node --check lib/tailscale.js && node --check lib/cloudflare-setup.js && node --check lib/tunnel.js && node --check lib/binding.js && node --check lib/sakurafrp.js"
   },
   "keywords": [
     "dsh",
@@ -36,7 +36,10 @@
     "qrcode",
     "approval",
     "cloudflared",
-    "tailscale"
+    "tailscale",
+    "sakurafrp",
+    "natfrp",
+    "binding-password"
   ],
   "author": "msz-legend",
   "license": "MIT",

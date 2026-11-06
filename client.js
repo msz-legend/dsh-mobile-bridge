@@ -44,16 +44,32 @@ window.__ModuleLoader__.load({
       normal: ZH ? '需要确认' : 'Needs confirmation',
       argsUnknown: ZH ? '（参数不可得，仅按工具名记忆）' : '(args unavailable; remembers tool only)',
       seconds: ZH ? '秒' : 's',
-      settingsTitle: ZH ? '手机桥接' : 'Mobile Bridge',
+      settingsTitle: ZH ? '手机分身' : 'Phone Mirror',
       paired: ZH ? '已配对设备' : 'Paired devices',
       online: ZH ? '在线' : 'online',
       pending: ZH ? '待审批' : 'Pending approvals',
       rules: ZH ? 'always 规则' : 'Always rules',
       approvalTimeout: ZH ? '审批超时' : 'Approval timeout',
       address: ZH ? '访问地址' : 'Access URL',
-      pairCode: ZH ? '生成配对码' : 'New pairing code',
-      pairHint: ZH ? '用手机扫描二维码，或打开地址后输入配对码。' : 'Scan the QR code, or open the URL and enter the code.',
-      desktopOnly: ZH ? '仅在桌面端（本机）可生成配对码。' : 'Pairing codes can only be created on the desktop.',
+      bindTitle: ZH ? '绑定密码' : 'Binding password',
+      bindHint: ZH
+        ? '手机打开地址后手动输入本密码完成绑定。二维码只含地址、不含密码；密码长期有效，改密码不影响已绑定设备。'
+        : 'Open the URL on your phone and enter this password to bind. The QR contains the URL only, never the password; it is long-lived and rotating it does not disconnect bound devices.',
+      bindShow: ZH ? '查看绑定密码' : 'Show binding password',
+      bindCopy: ZH ? '复制密码' : 'Copy password',
+      bindCopied: ZH ? '已复制。' : 'Copied.',
+      bindRegen: ZH ? '重新生成' : 'Regenerate',
+      bindRegened: ZH ? '已生成新密码。' : 'New password generated.',
+      bindCustom: ZH ? '设为自定义密码' : 'Set custom password',
+      bindCustomPh: ZH ? '自定义密码（6–64 字符）' : 'Custom password (6–64 chars)',
+      bindSaved: ZH ? '已保存。' : 'Saved.',
+      bindBadLength: ZH ? '密码长度需为 6–64 字符。' : 'Password must be 6–64 characters.',
+      bindFailed: ZH ? '操作失败，请刷新重试。' : 'Action failed — refresh and retry.',
+      bindCustomNote: ZH ? '当前为自定义密码。' : 'Using a custom password.',
+      bindQrAlt: ZH ? '绑定地址二维码' : 'Binding address QR code',
+      desktopOnly: ZH
+        ? '绑定密码、外网接入与设备管理仅可在桌面端（本机）操作。'
+        : 'Binding password, tunnel settings and device management are desktop-only.',
       devicesTitle: ZH ? '设备管理' : 'Device management',
       deviceOnline: ZH ? '在线' : 'Online',
       deviceOffline: ZH ? '离线' : 'Offline',
@@ -64,11 +80,11 @@ window.__ModuleLoader__.load({
       revokeAll: ZH ? '全部撤销' : 'Revoke all',
       purgeRevoked: ZH ? '清除已撤销记录' : 'Clear revoked',
       confirmRevoke: ZH
-        ? '确认撤销该设备？撤销后该手机需要重新配对才能接入。'
-        : 'Revoke this device? It must re-pair to connect again.',
+        ? '确认撤销该设备？撤销后该手机需要用绑定密码重新绑定才能接入。'
+        : 'Revoke this device? It must bind again with the binding password to connect.',
       confirmRevokeAll: ZH
-        ? '确认撤销全部设备？所有已配对的手机都会立即断开。'
-        : 'Revoke all devices? Every paired phone disconnects immediately.',
+        ? '确认撤销全部设备？所有已绑定的手机都会立即断开。'
+        : 'Revoke all devices? Every bound phone disconnects immediately.',
       confirmPurge: ZH
         ? '清除全部已撤销记录？此操作不可撤销（不影响当前在用设备）。'
         : 'Clear all revoked records? This cannot be undone (active devices unaffected).',
@@ -88,8 +104,8 @@ window.__ModuleLoader__.load({
         ? '固定地址：重启/掉线后不变，可保存二维码长期使用。'
         : 'Fixed address: stable across restarts — safe to save this QR.',
       addressTemporary: ZH
-        ? '临时地址：每次重启会变，换地址后需重新扫码。建议改用固定域名隧道。'
-        : 'Temporary address: changes on restart — re-scan needed. A fixed-domain tunnel is recommended.',
+        ? '临时地址：每次重启会变，换地址后需重新打开新地址（地址二维码也会变）；绑定密码不变。'
+        : 'Temporary address: changes on restart — reopen the new address (the address QR changes too); the binding password is unchanged.',
       tsTitle: ZH ? 'Tailscale 一键接入' : 'Tailscale setup',
       tsLoading: ZH ? '检测中…' : 'Detecting…',
       tsNotInstalled: ZH ? '未检测到 Tailscale' : 'Tailscale not installed',
@@ -140,20 +156,45 @@ window.__ModuleLoader__.load({
         ? '需要管理员权限：请以管理员身份运行 DSH 后重试；或在管理员 PowerShell 执行 cloudflared service install <token>。'
         : 'Needs admin: run DSH as administrator and retry, or run `cloudflared service install <token>` in an admin PowerShell.',
       cfSvcNote: ZH ? '已交由系统服务托管：开机自启，DSH/Desktop 重启不影响连接。' : 'Tunnel is hosted by the OS service: auto-start on boot, independent of DSH/Desktop restarts.',
-      pairRequestTitle: ZH ? '配对请求' : 'Pairing request',
-      pairRequestBody: ZH ? '有一台设备通过配对码请求接入。' : 'A device is asking to pair with a valid code.',
-      pairFrom: ZH ? '来源' : 'from',
-      allow: ZH ? '允许' : 'Allow',
-      allowedText: ZH ? '已允许，等待手机进入…' : 'Allowed — waiting for the phone…',
-      deniedText: ZH ? '已拒绝。' : 'Denied.',
+      tsNote: ZH
+        ? '⚠ 仅适合国外用户：国内网络无法稳定登录与中继，国内用户请改用 SakuraFrp 免费穿透。'
+        : '⚠ Overseas users only: sign-in and relays are unreliable in mainland China — use SakuraFrp instead.',
+      sfTitle: ZH ? 'SakuraFrp 免费穿透（国内推荐）' : 'SakuraFrp free tunnel (China recommended)',
+      sfLoading: ZH ? '检测中…' : 'Detecting…',
+      sfNoBin: ZH ? '未检测到 frpc，请先下载并放到 PATH，或在插件配置里填绝对路径' : 'frpc not found — download it, add it to PATH, or set an absolute path in plugin config',
+      sfMode: ZH ? '模式' : 'Mode',
+      sfAddr: ZH ? '当前地址' : 'Address',
+      sfKeyPh: ZH ? '访问密钥（用户信息页，非账号密码）' : 'Access key (User Info page, not your account password)',
+      sfIdPh: ZH ? '隧道 ID' : 'Tunnel ID',
+      sfRandom: ZH ? '随机域名（自动识别，推荐）' : 'Random domain (auto-detected, recommended)',
+      sfCustom: ZH ? '自定义域名（需 CNAME 到节点）' : 'Custom domain (CNAME to the node)',
+      sfDomainPh: ZH ? '如 http://dsh.example.com' : 'e.g. http://dsh.example.com',
+      sfDownload: ZH ? '下载 frpc（natfrp.com）' : 'Download frpc (natfrp.com)',
+      sfSave: ZH ? '保存并启用' : 'Save & enable',
+      sfClear: ZH ? '停用（回到 cloudflared 临时隧道）' : 'Disable (back to cloudflared quick)',
+      sfOk: ZH ? '已启用，等待 frpc 上报地址后点「刷新」。' : 'Enabled — wait for frpc to report its URL, then Refresh.',
+      sfBadKey: ZH ? '请填写访问密钥。' : 'Access key is required.',
+      sfBadId: ZH ? '请填写隧道 ID。' : 'Tunnel ID is required.',
+      sfBadDomain: ZH ? '自定义域名必须以 http:// 或 https:// 开头。' : 'Custom domain must start with http:// or https://.',
+      sfReachable: ZH ? '公网可达' : 'Public reachable',
+      sfHelp: ZH
+        ? '免费档 2 条隧道 / 5 GiB 月流量 / 10 Mbps，需实名认证。随机域名由 frpc 日志里的 *.natfrp.cloud / frp-*.top 自动识别；自定义域名请 CNAME 到节点地址，并在节点侧自备 SSL 证书。'
+        : 'Free tier: 2 tunnels / 5 GiB monthly / 10 Mbps, real-name verification required. The random domain is read from frpc logs (*.natfrp.cloud / frp-*.top); for a custom domain, CNAME it to the node and provide your own SSL certificate.',
+      sfHttpWarn: ZH
+        ? '⚠ 免费档是明文 HTTP：手机到节点之间不加密。敏感场景请用自定义域名 + HTTPS 或改用命名隧道。'
+        : '⚠ Free tier is plain HTTP: traffic from the phone to the node is unencrypted. Use a custom domain with HTTPS or a named tunnel for sensitive work.',
+      sfRunning: ZH ? '运行中' : 'running',
+      sfDown: ZH ? '未运行' : 'not running',
+      sfKeySaved: ZH ? '访问密钥已保存（仅本地）' : 'Access key saved (local only)',
+      sfClearAsk: ZH ? '确认停用 SakuraFrp 并回到临时隧道？' : 'Disable SakuraFrp and return to the quick tunnel?',
       back: ZH ? '返回设置列表' : 'Back to settings list',
       linkLost: ZH
-        ? '连接已中断：隧道地址可能已更换。请刷新页面；仍失败就回电脑上重新生成配对码并扫码。'
-        : 'Connection lost: the tunnel address may have changed. Refresh; if it persists, re-pair from the desktop.',
+        ? '连接已中断：隧道地址可能已更换。请刷新页面；仍失败就回电脑上查看「设置 → 手机分身」的新地址，绑定密码不变。'
+        : 'Connection lost: the tunnel address may have changed. Refresh; if it persists, check the new address under Settings → Phone Mirror. The binding password is unchanged.',
       channelTitle: ZH ? '外部推送通道（审批通知）' : 'External push channels (approval notifications)',
       channelHint: ZH
-        ? '审批/配对产生时，本机把消息推送到这里配置的通道 APP。不依赖浏览器，任何手机都能收。每个通道展开后有具体配置步骤。'
-        : 'When an approval or pairing request is created, this machine pushes a message to the channel apps configured here. Browser-independent - any phone receives it. Each channel lists concrete setup steps.',
+        ? '审批产生时，本机把消息推送到这里配置的通道 APP。不依赖浏览器，任何手机都能收。每个通道展开后有具体配置步骤。'
+        : 'When an approval is created, this machine pushes a message to the channel apps configured here. Browser-independent — any phone receives it. Each channel lists concrete setup steps.',
       channelAdd: ZH ? '添加通道' : 'Add channel',
       channelSave: ZH ? '保存' : 'Save',
       channelRemove: ZH ? '删除' : 'Remove',
@@ -228,6 +269,17 @@ window.__ModuleLoader__.load({
 .dmb-cf input{width:100%;box-sizing:border-box;margin-top:6px;padding:8px 10px;border:1px solid rgba(127,127,127,.35);
   border-radius:8px;font:inherit;font-size:13px;background:var(--dsw-specific-input-major,#fff);color:inherit}
 .dmb-cf .dmb-device-actions{margin-top:8px;justify-content:flex-start}
+.dmb-bind,.dmb-sf{margin-top:16px;border-top:1px solid rgba(127,127,127,.25);padding-top:14px}
+.dmb-bind input,.dmb-sf input{width:100%;box-sizing:border-box;margin-top:6px;padding:8px 10px;border:1px solid rgba(127,127,127,.35);
+  border-radius:8px;font:inherit;font-size:13px;background:var(--dsw-specific-input-major,#fff);color:inherit}
+.dmb-bind .dmb-device-actions,.dmb-sf .dmb-device-actions{margin-top:8px;justify-content:flex-start}
+.dmb-bind .dmb-password{font:600 18px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:2px;
+  word-break:break-all;overflow-wrap:anywhere;background:rgba(127,127,127,.08);padding:10px 12px;border-radius:8px;margin:8px 0}
+.dmb-sf-choice{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;font-size:13px}
+.dmb-sf-choice label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.dmb-sf-choice input{width:auto;margin:0}
+.dmb-sf a{color:#2563eb;word-break:break-all}
+.dmb-sf .dmb-muted{margin-top:6px}
 .dmb-devices-title{font-weight:600;font-size:13px;margin-bottom:8px}
 .dmb-device{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;border:1px solid rgba(127,127,127,.25);
   border-radius:12px;padding:10px 12px;background:rgba(127,127,127,.05);min-width:0;overflow-wrap:anywhere;margin-bottom:8px}
@@ -269,7 +321,7 @@ window.__ModuleLoader__.load({
 /* DMB-019：宿主新版设置抽屉（panel 子元素 navTitle/nav/header/options）的适配。
    ① 内容区绑定到 _options（bind 侧），list 态隐藏、detail 态全宽沿用上面通用规则；
    ② 新版 navList 是横向一排 navCell（grid 204px+156px 双栏 + 列向溢出），
-      360px 下「手机桥接」等后半段被排到视口外（x≈600）完全点不到。
+      360px 下「手机分身」等后半段被排到视口外（x≈600）完全点不到。
       这里在 data-dmb-settings（即窄屏补丁已 bind）范围内把导航纵向化。 */
 [data-dmb-settings] [class*="_panel"]{grid-template-columns:1fr !important;overflow-y:auto !important}
 [data-dmb-settings] [class*="_navList"]{
@@ -383,14 +435,13 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
 
     /**
      * 审批通知统一走「外部推送通道」（设置面板 → 外部推送通道）。
-     * 桌面端在审批/配对产生时 POST 到已配置通道（ntfy/Bark/企业微信自建应用/飞书/钉钉/企业微信/Telegram/通用 webhook），
+     * 桌面端在审批产生时 POST 到已配置通道（ntfy/Bark/企业微信自建应用/飞书/钉钉/企业微信/Telegram/通用 webhook），
      * 手机端只做审批交互，不再发浏览器内通知（Android WebView 系与 iOS 第三方浏览器根本不支持，
      * 统一通道反而更省心）。
      */
 
     function useApprovalFeed() {
       const [items, setItems] = react.useState([])
-      const [pairRequests, setPairRequests] = react.useState([])
       react.useEffect(() => {
         if (typeof EventSource === 'undefined') return undefined
         let source
@@ -419,15 +470,6 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
               )
             } else if (message.type === 'approval-resolved') {
               setItems((previous) => previous.filter((entry) => entry.requestId !== message.requestId))
-            } else if (message.type === 'pair-request' && message.confirmId) {
-              // broadcastLoopback 只发桌面；手机不会收到配对请求卡片
-              setPairRequests((previous) =>
-                previous.some((entry) => entry.confirmId === message.confirmId)
-                  ? previous
-                  : [...previous, message],
-              )
-            } else if (message.type === 'pair-request-resolved') {
-              setPairRequests((previous) => previous.filter((entry) => entry.confirmId !== message.confirmId))
             }
           }
           source.onerror = () => {
@@ -451,7 +493,7 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
           }
         }
       }, [])
-      return [items, setItems, pairRequests]
+      return [items, setItems]
     }
 
     function useCountdown(expiresAt) {
@@ -532,70 +574,9 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
       )
     }
 
-    /** 桌面确认卡：非 loopback 来源的手机配对需要人在电脑前点允许（/devices/confirm 仅 loopback 可达）。 */
-    function PairCard(props) {
-      const { request } = props
-      const [busy, setBusy] = react.useState(false)
-      const [note, setNote] = react.useState(undefined)
-
-      const resolve = (decision) => {
-        if (busy) return
-        setBusy(true)
-        fetch(BASE + '/devices/confirm', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ confirmId: request.confirmId, decision }),
-        })
-          .then((response) => response.json().catch(() => ({})))
-          .then((json) => {
-            if (decision === 'allow') setNote(json?.ok === true ? T.allowedText : `${T.pairRequestTitle}: limit`)
-            else setNote(T.deniedText)
-          })
-          .catch(() => setBusy(false))
-      }
-
-      return h(
-        'div',
-        { className: 'dmb-overlay' },
-        h(
-          'div',
-          { className: 'dmb-card', role: 'dialog', 'aria-label': T.pairRequestTitle },
-          h(
-            'div',
-            { className: 'dmb-head' },
-            h('span', { className: 'dmb-dot' }),
-            T.pairRequestTitle,
-          ),
-          h(
-            'div',
-            { className: 'dmb-body' },
-            h('div', { className: 'dmb-tool' }, request.name || 'phone'),
-            h('div', { className: 'dmb-sum' }, `${T.pairRequestBody}\n${T.pairFrom}: ${request.source || '—'}`),
-            note ? h('div', { className: 'dmb-pattern' }, note) : null,
-          ),
-          h(
-            'div',
-            { className: 'dmb-foot' },
-            h('span', { className: 'dmb-timer' }),
-            h(
-              'button',
-              { className: 'dmb-btn danger', disabled: busy, onClick: () => resolve('deny'), type: 'button' },
-              T.reject,
-            ),
-            h(
-              'button',
-              { className: 'dmb-btn primary', disabled: busy, onClick: () => resolve('allow'), type: 'button' },
-              T.allow,
-            ),
-          ),
-        ),
-      )
-    }
-
     function ApprovalOverlay() {
       ensureStyle()
-      const [items, setItems, pairRequests] = useApprovalFeed()
+      const [items, setItems] = useApprovalFeed()
       let tree = null
       if (items.length > 0) {
         const request = items[0]
@@ -604,8 +585,6 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
           return postDecision(requestId, decision).catch(() => undefined)
         }
         tree = h(Card, { request, onDecide })
-      } else if (pairRequests.length > 0) {
-        tree = h(PairCard, { request: pairRequests[0] })
       }
       if (tree === null) return null
       return reactDom ? reactDom.createPortal(tree, document.body) : tree
@@ -921,6 +900,7 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
             )
           : null,
         h('div', { className: 'dmb-muted' }, T.tsFallbackHint),
+        h('div', { className: 'dmb-muted' }, T.tsNote),
       )
     }
 
@@ -1091,6 +1071,297 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
       )
     }
 
+    /** 绑定密码卡片：桌面端查看/复制/重生成/自定义密码；二维码只含地址、不含密码。 */
+    function BindingCard() {
+      ensureStyle()
+      const [st, setSt] = react.useState(undefined)
+      const [custom, setCustom] = react.useState('')
+      const [busy, setBusy] = react.useState(false)
+      const [msg, setMsg] = react.useState(undefined)
+      const load = () => {
+        fetch(BASE + '/pairing.json', { credentials: 'same-origin' })
+          .then((r) => (r.ok ? r.json() : undefined))
+          .then((j) => {
+            if (j && j.ok === true) setSt(j)
+          })
+          .catch(() => undefined)
+      }
+      react.useEffect(() => {
+        load()
+      }, [])
+      const copy = () => {
+        const value = st?.password ?? ''
+        if (value === '') return
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          navigator.clipboard.writeText(value).then(() => setMsg(T.bindCopied)).catch(() => setMsg(T.bindFailed))
+          return
+        }
+        try {
+          const area = document.createElement('textarea')
+          area.value = value
+          area.style.position = 'fixed'
+          area.style.opacity = '0'
+          document.body.appendChild(area)
+          area.select()
+          const ok = document.execCommand('copy')
+          document.body.removeChild(area)
+          setMsg(ok ? T.bindCopied : T.bindFailed)
+        } catch {
+          setMsg(T.bindFailed)
+        }
+      }
+      const regenerate = (value) => {
+        if (busy) return
+        const chosen = typeof value === 'string' ? value.trim() : ''
+        if (chosen !== '' && (chosen.length < 6 || chosen.length > 64)) {
+          setMsg(T.bindBadLength)
+          return
+        }
+        setBusy(true)
+        setMsg(undefined)
+        fetch(BASE + '/binding/regenerate', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ password: chosen }),
+        })
+          .then((r) => r.json())
+          .then((j) => {
+            setBusy(false)
+            if (j && j.ok === true) {
+              setSt((prev) => ({
+                ...(prev ?? {}),
+                password: j.password,
+                hasCustomBinding: j.hasCustomBinding,
+                createdAt: j.createdAt,
+              }))
+              setCustom('')
+              setMsg(chosen === '' ? T.bindRegened : T.bindSaved)
+            } else if (j && j.error === 'binding-password-length') setMsg(T.bindBadLength)
+            else setMsg(T.bindFailed)
+          })
+          .catch(() => {
+            setBusy(false)
+            setMsg(T.bindFailed)
+          })
+      }
+      return h(
+        'div',
+        { className: 'dmb-bind' },
+        h('div', { className: 'dmb-devices-title' }, T.bindTitle),
+        h('div', { className: 'dmb-muted' }, T.bindHint),
+        st?.password ? h('div', { className: 'dmb-password' }, st.password) : null,
+        st?.hasCustomBinding === true ? h('div', { className: 'dmb-muted' }, T.bindCustomNote) : null,
+        st?.pairUrl ? h('div', { className: 'dmb-addr' }, st.pairUrl) : null,
+        st?.qrDataUrl ? h('img', { className: 'dmb-qr', src: st.qrDataUrl, alt: T.bindQrAlt }) : null,
+        h(
+          'div',
+          { className: 'dmb-device-actions' },
+          h('button', { type: 'button', className: 'dmb-btn', disabled: busy, onClick: load }, T.refresh),
+          h('button', { type: 'button', className: 'dmb-btn', disabled: busy || !st?.password, onClick: copy }, T.bindCopy),
+          h('button', { type: 'button', className: 'dmb-btn', disabled: busy, onClick: () => regenerate(undefined) }, T.bindRegen),
+        ),
+        h('input', {
+          type: 'password',
+          placeholder: T.bindCustomPh,
+          value: custom,
+          maxLength: 64,
+          autoComplete: 'off',
+          onChange: (e) => setCustom(e.target.value),
+        }),
+        h(
+          'div',
+          { className: 'dmb-device-actions' },
+          h(
+            'button',
+            { type: 'button', className: 'dmb-btn primary', disabled: busy, onClick: () => regenerate(custom) },
+            T.bindCustom,
+          ),
+        ),
+        msg ? h('div', { className: 'dmb-muted' }, msg) : null,
+      )
+    }
+
+    /** SakuraFrp 免费穿透：国内用户免域名、免公网 IP、免端口转发的稳定接入档。 */
+    function SakuraCard() {
+      ensureStyle()
+      const [st, setSt] = react.useState(undefined)
+      const [token, setToken] = react.useState('')
+      const [tunnelId, setTunnelId] = react.useState('')
+      const [choice, setChoice] = react.useState('auto')
+      const [domain, setDomain] = react.useState('')
+      const [busy, setBusy] = react.useState('')
+      const [msg, setMsg] = react.useState(undefined)
+      const load = () => {
+        fetch(BASE + '/sakura.json', { credentials: 'same-origin' })
+          .then((r) => (r.ok ? r.json() : undefined))
+          .then((j) => {
+            if (!j || j.ok !== true) return
+            setSt(j)
+            if (j.tunnelId && tunnelId === '') setTunnelId(j.tunnelId)
+            if (j.customDomain && domain === '') setDomain(j.customDomain)
+            if (j.customDomain) setChoice('custom')
+          })
+          .catch(() => undefined)
+      }
+      react.useEffect(() => {
+        load()
+      }, [])
+      const post = (path, body) =>
+        fetch(BASE + path, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        }).then((r) => r.json())
+      const save = () => {
+        if (busy !== '') return
+        if (token.trim() === '') {
+          setMsg(T.sfBadKey)
+          return
+        }
+        if (tunnelId.trim() === '') {
+          setMsg(T.sfBadId)
+          return
+        }
+        if (choice === 'custom' && /^https?:\/\/[^\s]+$/i.test(domain.trim()) !== true) {
+          setMsg(T.sfBadDomain)
+          return
+        }
+        setBusy('save')
+        setMsg(undefined)
+        post('/sakura/setup', {
+          token: token.trim(),
+          tunnelId: tunnelId.trim(),
+          domainChoice: choice,
+          domain: choice === 'custom' ? domain.trim() : '',
+        })
+          .then((j) => {
+            setBusy('')
+            if (j && j.ok === true) {
+              setToken('')
+              setMsg(T.sfOk)
+              load()
+            } else if (j && j.error === 'sakura-token-required') setMsg(T.sfBadKey)
+            else if (j && j.error === 'sakura-tunnelid-required') setMsg(T.sfBadId)
+            else if (j && j.error === 'sakura-domain-invalid') setMsg(T.sfBadDomain)
+            else setMsg(T.bindFailed + (j && j.error ? ' ' + j.error : ''))
+          })
+          .catch(() => {
+            setBusy('')
+            setMsg(T.bindFailed)
+          })
+      }
+      const clear = () => {
+        if (busy !== '') return
+        if (typeof window !== 'undefined' && window.confirm && window.confirm(T.sfClearAsk) !== true) return
+        setBusy('clear')
+        setMsg(undefined)
+        post('/sakura/clear', {})
+          .then((j) => {
+            setBusy('')
+            if (j && j.ok === true) {
+              setChoice('auto')
+              setDomain('')
+              setMsg(T.sfDown)
+              load()
+            } else setMsg(T.bindFailed)
+          })
+          .catch(() => {
+            setBusy('')
+            setMsg(T.bindFailed)
+          })
+      }
+      const statusLine =
+        st === undefined
+          ? T.sfLoading
+          : [
+              T.sfMode + ': ' + (st.mode || 'quick'),
+              st.frpcInstalled === true ? 'frpc ' + (st.version || '') : T.sfNoBin,
+              st.running === true ? T.sfRunning : T.sfDown,
+              st.reachable === true ? T.sfReachable : '',
+              st.publicBase ? T.sfAddr + ': ' + st.publicBase : '',
+              st.lastError || '',
+            ]
+              .filter(Boolean)
+              .join(' · ')
+      return h(
+        'div',
+        { className: 'dmb-sf' },
+        h('div', { className: 'dmb-devices-title' }, T.sfTitle),
+        h('div', { className: 'dmb-muted' }, statusLine),
+        h('input', {
+          type: 'password',
+          placeholder: T.sfKeyPh,
+          value: token,
+          autoComplete: 'off',
+          onChange: (e) => setToken(e.target.value),
+        }),
+        h('input', {
+          type: 'text',
+          placeholder: T.sfIdPh,
+          value: tunnelId,
+          autoComplete: 'off',
+          onChange: (e) => setTunnelId(e.target.value),
+        }),
+        h(
+          'div',
+          { className: 'dmb-sf-choice' },
+          h(
+            'label',
+            null,
+            h('input', {
+              type: 'radio',
+              name: 'dmb-sf-choice',
+              checked: choice === 'auto',
+              onChange: () => setChoice('auto'),
+            }),
+            T.sfRandom,
+          ),
+          h(
+            'label',
+            null,
+            h('input', {
+              type: 'radio',
+              name: 'dmb-sf-choice',
+              checked: choice === 'custom',
+              onChange: () => setChoice('custom'),
+            }),
+            T.sfCustom,
+          ),
+        ),
+        choice === 'custom'
+          ? h('input', {
+              type: 'url',
+              placeholder: T.sfDomainPh,
+              value: domain,
+              autoComplete: 'off',
+              onChange: (e) => setDomain(e.target.value),
+            })
+          : null,
+        h(
+          'div',
+          { className: 'dmb-device-actions' },
+          h('button', { type: 'button', className: 'dmb-btn', onClick: load, disabled: busy !== '' }, T.refresh),
+          h('button', { type: 'button', className: 'dmb-btn primary', onClick: save, disabled: busy !== '' }, T.sfSave),
+          h('button', { type: 'button', className: 'dmb-btn', onClick: clear, disabled: busy !== '' }, T.sfClear),
+        ),
+        h(
+          'div',
+          { className: 'dmb-muted' },
+          h(
+            'a',
+            { href: 'https://www.natfrp.com/tunnel/download', target: '_blank', rel: 'noopener noreferrer' },
+            T.sfDownload,
+          ),
+        ),
+        st?.hasKey === true ? h('div', { className: 'dmb-muted' }, T.sfKeySaved) : null,
+        msg ? h('div', { className: 'dmb-muted' }, msg) : null,
+        h('div', { className: 'dmb-muted' }, T.sfHelp),
+        h('div', { className: 'dmb-muted' }, T.sfHttpWarn),
+      )
+    }
+
     function Cell(props) {
       return h('div', { className: 'dmb-cell' }, props.label, h('b', null, props.value))
     }
@@ -1241,18 +1512,6 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
     function SettingsPanel() {
       ensureStyle()
       const data = useOverview()
-      const [pairing, setPairing] = react.useState(undefined)
-      const [busy, setBusy] = react.useState(false)
-
-      const requestCode = () => {
-        if (busy) return
-        setBusy(true)
-        fetch(BASE + '/pairing.json', { credentials: 'same-origin' })
-          .then((response) => response.json())
-          .then((json) => setPairing(json))
-          .catch(() => undefined)
-          .finally(() => setBusy(false))
-      }
 
       const desktop = data?.loopback === true
       const timeoutText =
@@ -1295,24 +1554,9 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
           ? h(
               'div',
               null,
-              h(
-                'button',
-                { type: 'button', className: 'dmb-btn primary', onClick: requestCode, disabled: busy },
-                T.pairCode,
-              ),
-              pairing?.code
-                ? h(
-                    'div',
-                    null,
-                    h('div', { className: 'dmb-muted' }, T.pairHint),
-                    pairing.qrDataUrl
-                      ? h('img', { className: 'dmb-qr', src: pairing.qrDataUrl, alt: T.pairCode })
-                      : null,
-                    h('div', { className: 'dmb-addr' }, `${pairing.publicBase ?? ''}`),
-                    h('div', { className: 'dmb-addr' }, pairing.code),
-                  )
-                : null,
+              h(BindingCard, null),
               h(DeviceManager, null),
+              h(SakuraCard, null),
               h(TailscaleCard, null),
               h(CloudflareCard, null),
               h(ChannelCard, null),
@@ -1420,7 +1664,7 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
         // ① 旧版：panel 直接子元素含语义后缀 _content（nav + content 双栏）。
         // ② 新版：panel 子元素为 navTitle/nav/header/options —— _content 没了，
         //    内容区就是 _options 本身；且 navList 改为横向 grid 一排 navCell，
-        //    360px 下整排溢出视口（「手机桥接」被排到 x≈600，点不到）。
+        //    360px 下整排溢出视口（「手机分身」被排到 x≈600，点不到）。
         //    新版把 content 绑到 _options，CSS 侧再对 navList 做纵向化。
         const legacyContent = childWith(panel, '_content')
         const content = legacyContent !== undefined ? legacyContent : options
@@ -1573,7 +1817,7 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
      * 所有 API 调用都被 Cloudflare 边缘回 530（gateway/internal，回源不可达），表现为
      * 「消息发不出去」。这里做两件事：
      *   1. 对 /api/ 的 502/503/504/529/530 做有限重试（body 可重放的请求才重试）；
-     *   2. 连续失败后给一条明确提示，告诉用户刷新/重新扫码，而不是静默失败。
+     *   2. 连续失败后给一条明确提示，告诉用户刷新/重新打开新地址，而不是静默失败。
      */
     function installTransportResilience() {
       if (typeof window === 'undefined' || typeof window.fetch !== 'function') return

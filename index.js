@@ -20,9 +20,11 @@ import { createArgsObserver } from './lib/args-observer.js'
 import { createSessionOrigin } from './lib/session-origin.js'
 import { createAlways } from './lib/always.js'
 import { createPairing } from './lib/pairing.js'
+import { createBindingManager } from './lib/binding.js'
 import { createApprovalBridge } from './lib/approval-bridge.js'
 import { createEdge } from './lib/edge.js'
 import { createCloudflared } from './lib/cloudflared.js'
+import { createSakuraFrp } from './lib/sakurafrp.js'
 import { createHostLogin } from './lib/host-login.js'
 import { registerRoutes, DEVICE_COOKIE } from './lib/routes.js'
 import { createNotifyDispatcher } from './lib/push.js'
@@ -40,13 +42,9 @@ const DEFAULTS = {
   edgePort: 8787,
   publicBase: '',
   storeDir: '',
-  pairingTtlMs: 5 * 60 * 1000,
-  pairingMaxAttempts: 3,
   approvalTimeoutMs: 60_000,
   approvalTimeoutRemoteMs: 30_000,
   offlineGraceMs: 5_000,
-  pairConfirmTtlMs: 2 * 60_000,
-  autoApprovePairing: false,
   alwaysScope: 'session',
   maxDevices: 5,
   enableLan: true,
@@ -55,6 +53,10 @@ const DEFAULTS = {
   tunnelToken: '',
   tunnelBin: 'cloudflared',
   tunnelProtocol: '',
+  sakuraToken: '',
+  sakuraTunnelId: '',
+  sakuraBin: 'frpc',
+  sakuraDomain: '',
 }
 
 const asPositiveInt = (value, fallback) => {
@@ -70,31 +72,32 @@ function normalize(raw) {
   config.edgePort = asPositiveInt(input.edgePort, DEFAULTS.edgePort)
   if (typeof input.publicBase === 'string') config.publicBase = input.publicBase.trim()
   if (typeof input.storeDir === 'string' && input.storeDir.trim() !== '') config.storeDir = input.storeDir.trim()
-  config.pairingTtlMs = asPositiveInt(input.pairingTtlMs, DEFAULTS.pairingTtlMs)
-  config.pairingMaxAttempts = asPositiveInt(input.pairingMaxAttempts, DEFAULTS.pairingMaxAttempts)
   config.approvalTimeoutMs = asPositiveInt(input.approvalTimeoutMs, DEFAULTS.approvalTimeoutMs)
   config.approvalTimeoutRemoteMs = asPositiveInt(input.approvalTimeoutRemoteMs, DEFAULTS.approvalTimeoutRemoteMs)
   config.offlineGraceMs = asPositiveInt(input.offlineGraceMs, DEFAULTS.offlineGraceMs)
-  config.pairConfirmTtlMs = asPositiveInt(input.pairConfirmTtlMs, DEFAULTS.pairConfirmTtlMs)
-  config.autoApprovePairing = input.autoApprovePairing === true
   config.alwaysScope = input.alwaysScope === 'global' ? 'global' : 'session'
   config.maxDevices = asPositiveInt(input.maxDevices, DEFAULTS.maxDevices)
   config.enableLan = input.enableLan !== false
   config.tunnelEnabled = input.tunnelEnabled === true
-  config.tunnelMode = input.tunnelMode === 'token' ? 'token' : 'quick'
+  config.tunnelMode =
+    input.tunnelMode === 'token' || input.tunnelMode === 'sakura' ? input.tunnelMode : 'quick'
   config.tunnelToken = typeof input.tunnelToken === 'string' ? input.tunnelToken.trim() : ''
   config.tunnelBin = typeof input.tunnelBin === 'string' && input.tunnelBin.trim() !== '' ? input.tunnelBin.trim() : DEFAULTS.tunnelBin
   config.tunnelProtocol =
     input.tunnelProtocol === 'http2' || input.tunnelProtocol === 'quic' ? input.tunnelProtocol : DEFAULTS.tunnelProtocol
+  config.sakuraToken = typeof input.sakuraToken === 'string' ? input.sakuraToken.trim() : ''
+  config.sakuraTunnelId = typeof input.sakuraTunnelId === 'string' ? input.sakuraTunnelId.trim() : ''
+  config.sakuraBin = typeof input.sakuraBin === 'string' && input.sakuraBin.trim() !== '' ? input.sakuraBin.trim() : DEFAULTS.sakuraBin
+  config.sakuraDomain = typeof input.sakuraDomain === 'string' ? input.sakuraDomain.trim() : ''
   config.dshPort = 0
   return config
 }
 
 /**
- * 读取本地隧道机密（命名隧道 token 与固定域名）。
+ * 读取本地隧道机密（Cloudflare 命名隧道 token 与固定域名、SakuraFrp 访问密钥）。
  *
- * 为什么放本地文件而不是配置：token 是敏感凭据，绝不能写进仓库/cordis.patch.yml 被提交。
- * 文件：<storeDir>/tunnel.json  =>  { "token": "...", "publicBase": "https://dsh.example.com" }
+ * 为什么放本地文件而不是配置：机密绝不能写进仓库/cordis.patch.yml 被提交。
+ * 文件：<storeDir>/tunnel.json  =>  { "token": "...", "publicBase": "https://dsh.example.com", "sakura": { "token": "...", "tunnelId": "...", "domain": "" } }
  * 仅在配置里对应项为空时才采用；读取失败静默（保持 quick/LAN 等既有行为）。
  */
 function readLocalTunnelConfig(dir) {
@@ -128,6 +131,29 @@ export function apply(ctx, raw) {
   ) {
     merged.publicBase = localTunnel.publicBase.trim()
   }
+  // 本地 tunnel.json 里的 SakuraFrp 机密（{ token, tunnelId, domain }）：仅配置为空时补。
+  const localSakura = localTunnel.sakura !== null && typeof localTunnel.sakura === 'object' ? localTunnel.sakura : {}
+  if (
+    (typeof merged.sakuraToken !== 'string' || merged.sakuraToken.trim() === '') &&
+    typeof localSakura.token === 'string' &&
+    localSakura.token.trim() !== ''
+  ) {
+    merged.sakuraToken = localSakura.token.trim()
+  }
+  if (
+    (typeof merged.sakuraTunnelId !== 'string' || merged.sakuraTunnelId.trim() === '') &&
+    typeof localSakura.tunnelId === 'string' &&
+    localSakura.tunnelId.trim() !== ''
+  ) {
+    merged.sakuraTunnelId = localSakura.tunnelId.trim()
+  }
+  if (
+    (typeof merged.sakuraDomain !== 'string' || merged.sakuraDomain.trim() === '') &&
+    typeof localSakura.domain === 'string' &&
+    localSakura.domain.trim() !== ''
+  ) {
+    merged.sakuraDomain = localSakura.domain.trim()
+  }
   // 本地 tunnel.json 里同时有 token + 固定域名 → 视为命名隧道模式（重启后持续生效，无需改仓库配置）。
   if (
     typeof merged.tunnelToken === 'string' && merged.tunnelToken.trim() !== '' &&
@@ -136,6 +162,18 @@ export function apply(ctx, raw) {
     merged.tunnelMode = 'token'
     // 隧道已交给系统服务（serviceManaged）时由 Windows 服务托管连接，插件不再自行拉起 cloudflared。
     merged.tunnelEnabled = localTunnel.serviceManaged === true ? false : true
+  }
+  // 用户在设置页显式选择了 SakuraFrp：模式标记优先于上面的 cloudflared 推断，保证重启后仍生效。
+  // auto（无自定义域名）时清空 publicBase，让 resolvePublicBase 采用 frpc 上报的随机子域；
+  // custom 时直接采用用户填的域名。
+  if (
+    localTunnel.mode === 'sakura' &&
+    typeof merged.sakuraToken === 'string' && merged.sakuraToken.trim() !== '' &&
+    typeof merged.sakuraTunnelId === 'string' && merged.sakuraTunnelId.trim() !== ''
+  ) {
+    merged.tunnelMode = 'sakura'
+    merged.tunnelEnabled = true
+    merged.publicBase = typeof localSakura.domain === 'string' ? localSakura.domain.trim() : ''
   }
   const config = normalize(merged)
   if (!config.enabled) return
@@ -153,6 +191,9 @@ export function apply(ctx, raw) {
   const store = createStore(storeDir)
   const always = createAlways({ store, config, log })
   const pairing = createPairing({ config, store, log })
+  // 绑定密码：首次运行生成随机值落盘 <storeDir>/binding.json(0600)，手机凭密码自助绑定。
+  const binding = createBindingManager({ dir: storeDir, log })
+  binding.ensure()
   const hub = createEventHub(log)
   const origins = createSessionOrigin(log)
   const args = createArgsObserver(ctx, log)
@@ -160,7 +201,7 @@ export function apply(ctx, raw) {
   const clientHello = { count: 0, lastAt: 0, href: undefined, note: undefined }
 
   // 审批桥接：Host 侧唯一需要真正参与宿主逻辑的模块。
-  // 通知调度器：审批/配对产生时 POST 到用户配置的外部推送通道（ntfy/Bark/企业微信自建应用/飞书/
+  // 通知调度器：审批卡出现时 POST 到用户配置的外部推送通道（ntfy/Bark/企业微信自建应用/飞书/
   // 钉钉/企业微信/Telegram/通用 webhook），不依赖浏览器 —— 任何手机装个 APP 就能收。
   const notify = createNotifyDispatcher({
     storeDir: storeDirHint,
@@ -177,42 +218,68 @@ export function apply(ctx, raw) {
   if (typeof heartbeat.unref === 'function') heartbeat.unref()
 
   let publicBaseCache
-  let tunnel
+  let tunnelImpl
   const getPublicBase = async () => {
     if (typeof publicBaseCache === 'string') return publicBaseCache
-    publicBaseCache = await resolvePublicBase(config, config.edgePort, edge?.bindings?.() ?? [], log, tunnel?.url?.())
+    publicBaseCache = await resolvePublicBase(config, config.edgePort, edge?.bindings?.() ?? [], log, tunnelImpl?.url?.())
     log(`publicBase = ${publicBaseCache}`)
     return publicBaseCache
   }
 
-  // cloudflared 隧道：quick 模式拿到 URL 后立即刷新 publicBase（配对二维码跟着变）。
-  tunnel = createCloudflared({
-    config,
-    targetPort: config.edgePort,
-    log,
-    // 健康看护：token 模式探测固定域名；quick 模式探测解析出的临时地址。
-    healthUrl: () => config.publicBase || tunnel?.url?.(),
-    onUrl: (url) => {
-      publicBaseCache = undefined
-      log(`publicBase switched to tunnel: ${url}`)
-      void getPublicBase()
-    },
-  })
+  // 隧道工厂：按 tunnelMode 产出同构的 {start,stop,status,url}。
+  // cloudflared（quick/token）与 SakuraFrp（frpc）共用同一份健康看护约定。
+  const buildTunnel = () => {
+    if (config.tunnelMode === 'sakura') {
+      return createSakuraFrp({
+        config,
+        targetPort: config.edgePort,
+        log,
+        healthUrl: () => config.publicBase || tunnelImpl?.url?.(),
+        onUrl: (url) => {
+          publicBaseCache = undefined
+          log(`publicBase switched to tunnel: ${url}`)
+          void getPublicBase()
+        },
+      })
+    }
+    return createCloudflared({
+      config,
+      targetPort: config.edgePort,
+      log,
+      // 健康看护：token 模式探测固定域名；quick 模式探测解析出的临时地址。
+      healthUrl: () => config.publicBase || tunnelImpl?.url?.(),
+      onUrl: (url) => {
+        publicBaseCache = undefined
+        log(`publicBase switched to tunnel: ${url}`)
+        void getPublicBase()
+      },
+    })
+  }
 
-  // 隧道重启（命名隧道一键接入用）：停掉当前 quick/token 进程，确认退出后按新 config 重新拉起。
-  const restartTunnel = async () => {
+  tunnelImpl = buildTunnel()
+  // 稳定代理：rebuildTunnel 换实现时，routes/edge 持有的 tunnel 引用仍指向当前实例。
+  const tunnel = {
+    start: (...args) => tunnelImpl.start(...args),
+    stop: (...args) => tunnelImpl.stop(...args),
+    status: (...args) => tunnelImpl.status(...args),
+    url: (...args) => tunnelImpl.url(...args),
+  }
+
+  // 隧道重建（一键接入/换模式用）：停掉当前进程，确认退出后按新 config 重新构建并拉起。
+  const rebuildTunnel = async () => {
     try {
-      await tunnel.stop()
+      await tunnelImpl.stop()
     } catch {
       /* ignore */
     }
     for (let index = 0; index < 20; index += 1) {
-      if (tunnel.status().running !== true) break
+      if (tunnelImpl.status().running !== true) break
       await new Promise((resolve) => setTimeout(resolve, 150))
     }
     publicBaseCache = undefined
+    tunnelImpl = buildTunnel()
     try {
-      await tunnel.start()
+      await tunnelImpl.start()
     } catch {
       /* ignore */
     }
@@ -239,6 +306,7 @@ export function apply(ctx, raw) {
       routes = registerRoutes(scoped, {
         config,
         pairing,
+        binding,
         hub,
         bridge,
         always,
@@ -254,7 +322,7 @@ export function apply(ctx, raw) {
           config.publicBase = typeof url === 'string' ? url : ''
           publicBaseCache = undefined
         },
-        restartTunnel,
+        rebuildTunnel,
         getEdgeStatus: () => ({
           listening: edge?.isListening?.() === true,
           host: config.edgeHost,
