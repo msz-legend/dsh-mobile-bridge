@@ -40,5 +40,6 @@
         sakuraTunnelId: ''
         # frpc 可执行文件（从 https://www.natfrp.com/tunnel/download 下载）。
         sakuraBin: 'frpc'
-        # 自定义域名；留空 = 自动识别 frpc 日志里的 *.natfrp.cloud 随机子域。
+        # 自定义域名；留空 = 自动识别 frpc 日志里的 >>host:port<< 或节点地址
+        # （*.nyat.app / *.natfrp.cloud / frp-*.com|top），需 ≥0.51.0-sakura-14。
         sakuraDomain: ''

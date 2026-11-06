@@ -105,7 +105,7 @@ plugin_manager action=install_bundle target=<本目录绝对路径>
 
 | 通道 | 适用场景 | 做法 |
 |---|---|---|
-| **SakuraFrp 免费穿透（国内推荐）** | 国内手机外网访问、零成本固定入口 | 实名后创建免费 HTTP 隧道，下载 `frpc`，设 `tunnelMode: 'sakura'` + `sakuraToken`/`sakuraTunnelId`（见 §6.A） |
+| **SakuraFrp 免费穿透（国内推荐）** | 国内手机外网访问、零成本固定入口 | 实名后创建免费 TCP 隧道（HTTP 流量须选非内地节点），下载 `frpc`，设 `tunnelMode: 'sakura'` + `sakuraToken`/`sakuraTunnelId`（见 §6.A） |
 | **cloudflared 临时隧道** | 手机不在同一网络、零账号 | `winget install Cloudflare.cloudflared`，配置 `tunnelEnabled: true`（quick），重启后自动得到 `https://<random>.trycloudflare.com` |
 | **局域网直连** | 手机与电脑同网段 | 手机访问 `http://<本机LAN IP>:8787`（`edgeHost` 设 `auto` 或 LAN IP） |
 | **Cloudflare 命名隧道** | 有账号+域名的公网固定域名 | `tunnelMode: 'token'` + 本地 `tunnel.json` 填 token 与域名（见 §6.D） |
@@ -138,7 +138,7 @@ plugin_manager action=install_bundle target=<本目录绝对路径>
     sakuraToken: ''         # SakuraFrp 访问密钥（敏感，勿提交）
     sakuraTunnelId: ''      # SakuraFrp 隧道 ID
     sakuraBin: 'frpc'       # frpc 可执行文件；下载地址 https://www.natfrp.com/tunnel/download
-    sakuraDomain: ''        # 自定义域名；留空自动识别 frpc 日志里的 *.natfrp.cloud 随机子域
+    sakuraDomain: ''        # 自定义域名；留空自动识别 frpc 日志里的 >>host:port<< / 节点地址（*.nyat.app、*.natfrp.cloud、frp-*.com|top）
     enableLan: true
     maxDevices: 5
     approvalTimeoutMs: 60000
@@ -148,7 +148,7 @@ plugin_manager action=install_bundle target=<本目录绝对路径>
     storeDir: ''            # 设备与规则落盘目录，默认 ~/.dsh/dsh-mobile-bridge
 ```
 
-`tunnelMode` 三档：`'quick'`（默认，零账号 cloudflared 临时地址，每次重启会变）、`'token'`（Cloudflare 命名隧道，自带域名 + 本地 `tunnel.json`）、`'sakura'`（SakuraFrp 免费穿透，国内推荐，见 [§6.A](#a-sakurafrp-免费穿透国内推荐)）。默认仍是 `'quick'`，**不会自动启用 SakuraFrp**；启用前请务必阅读 §6.A 的明文 HTTP 安全提示。
+`tunnelMode` 三档：`'quick'`（默认，零账号 cloudflared 临时地址，每次重启会变）、`'token'`（Cloudflare 命名隧道，自带域名 + 本地 `tunnel.json`）、`'sakura'`（SakuraFrp 免费穿透，国内推荐，见 [§6.A](#a-sakurafrp-免费穿透国内推荐)）。默认仍是 `'quick'`，**不会自动启用 SakuraFrp**；启用前请务必阅读 §6.A 的明文 HTTP / 自动 HTTPS 安全提示。
 
 ---
 
@@ -191,7 +191,7 @@ curl -X POST http://127.0.0.1:<端口>/plugins/dsh-mobile-bridge/devices/purge
 - 防线依次为：**设备令牌闸门**（未绑定请求不转发宿主）→ **绑定密码**（仅桌面可见、可重生成）→ **按真实访客 IP 的频率限制与熔断**。真正的边界是设备令牌。
 - **Tailscale 私网档**：手机与电脑同在 WireGuard 加密的 tailnet 内，链路加密、仅自己设备可达（无需公网暴露，最安全）。⚠️ 仅适合国外用户：国内网络登录与中继不稳定。
 - **cloudflared / 命名隧道**：公网段全程 TLS。敏感 token 只放本地 `tunnel.json`（0600），**不要提交到 git**。
-- **SakuraFrp 免费档**：**明文 HTTP，手机 ↔ 节点之间无 TLS**，绑定密码、会话内容与工具审批数据都会明文经过公网节点。敏感环境请使用**自定义域名 + 自备 SSL**，或改用 **Tailscale** / **Cloudflare 命名隧道** 等全程加密通道（见 §6.A）。
+- **SakuraFrp 免费档**：未绑定官方免费 `*.nyat.app` 子域、frpc 也没开自动 HTTPS 时是**明文 HTTP，手机 ↔ 节点之间无 TLS**，绑定密码、会话内容与工具审批数据都会明文经过公网节点。敏感环境请绑定免费子域开启自动 HTTPS、使用**自定义域名 + 自备 SSL**，或改用 **Tailscale** / **Cloudflare 命名隧道** 等全程加密通道（见 §6.A）。
 - 局域网 HTTP 档 cookie 在途不加密；所有响应附加 `nosniff` / `no-referrer` / `SAMEORIGIN` 等安全头。
 
 ---
@@ -205,12 +205,18 @@ quick 隧道地址是随机的 `https://<random>.trycloudflare.com`，**每次�
 国内网络访问 Cloudflare / Tailscale 常不稳定，SakuraFrp（NATFrp）免费档是更省事的固定入口：
 
 - **免费档额度**：2 条隧道、每月 5GiB 流量、10Mbps 带宽；**需要实名认证**才能创建隧道。
-- **准备**：在 SakuraFrp 用户信息页拿到「访问密钥」，创建一条 HTTP 隧道并记下「隧道 ID」；从 <https://www.natfrp.com/tunnel/download> 下载对应平台的 `frpc`，路径填进 `sakuraBin`（默认 `frpc`，走 PATH）。
-- **启用**：设 `tunnelMode: 'sakura'`，填 `sakuraToken`（访问密钥）与 `sakuraTunnelId`（隧道 ID）。插件以 `frpc -f <访问密钥>:<隧道ID>` 启动子进程，默认不启用。
-- **随机子域**：`sakuraDomain` 留空时，插件从 `frpc` 日志里**自动识别**分配到的 `*.natfrp.cloud` 随机子域并写入对外地址。
-- **自定义域名**：填 `sakuraDomain`（如 `http://dsh.example.com`）时，需要把域名 **CNAME 到隧道节点地址**，并**自备 SSL 证书**；插件不会替你签发证书。
+- **准备**：在 SakuraFrp 用户信息页拿到「访问密钥」，创建一条隧道并记下「隧道 ID」；从 <https://www.natfrp.com/tunnel/download> 下载对应平台的 `frpc`（建议 ≥ `0.51.0-sakura-14`），路径填进 `sakuraBin`（默认 `frpc`，走 PATH）。
+  - 官方规则：[TCP 隧道](https://doc.natfrp.com/app/http.html) 的对外地址**必须带端口**，用自己的域名是可选的；若穿透的协议是 HTTP，**必须选非内地节点**。[HTTP(S) 隧道](https://doc.natfrp.com/app/http.html) 不需要带端口，但**必须有自己的域名**，内地节点还要求域名已备案。
+  - 建议用「[子域绑定](https://doc.natfrp.com/bestpractice/domain-bind.html)」申请官方免费的 `*.nyat.app` 子域和证书，开启 frpc 自动 HTTPS，得到 `https://<子域>:<端口>` 的加密入口。
+- **启用**：设置页「手机分身 → SakuraFrp」选择「随机域名」或「自定义域名」，填访问密钥、隧道 ID，保存即启动；等价于配置 `tunnelMode: 'sakura'` + `sakuraToken` + `sakuraTunnelId`。插件以 `frpc -f <访问密钥>:<隧道ID>` 启动子进程，默认不启用。
+- **随机域名（自动识别）**：`sakuraDomain` 留空时，插件读 `frpc` 日志自动识别地址，支持官方三种写法：
+  - `使用 >>www.example.nyat.app:10086<< 连接你的隧道`（绑定免费子域，无协议）
+  - `或使用 IP 地址连接: >>114.51.4.191:10086<<`（仅给 IP 时也能用，域名优先）
+  - `http://cn-hk-nf-1.natfrp.cloud:51906`（节点地址带协议），以及 `*.frp-*.com` / `*.frp-*.top` / `*.natfrp.cloud`
+  - 域名是 `*.nyat.app`、或日志出现「已从服务器为…加载证书 / 自动 HTTPS」时按 **https** 生成对外地址，否则按 **http**。
+- **自定义域名**：填 `sakuraDomain`（如 `https://dsh.example.com:12345`）时，需要把域名 **CNAME 到隧道节点地址**，并**自备 SSL 证书**；插件不会替你签发证书。
 
-> ⚠️ **安全提示（必读）**：SakuraFrp 免费档提供的是**明文 HTTP**（手机 ↔ 节点之间无 TLS），绑定密码、会话内容、工具审批数据都以明文经过公网节点，节点运营方与链路上的任何人都能看到。**敏感环境请改用「自定义域名 + 自备 SSL」**，或改用 **Tailscale** / **Cloudflare 命名隧道** 等全程加密通道；不要把明文随机子域当作长期生产入口。
+> ⚠️ **安全提示（必读）**：若没绑定官方免费 `*.nyat.app` 子域、frpc 也没开自动 HTTPS，SakuraFrp 给的是**明文 HTTP**（手机 ↔ 节点之间无 TLS），绑定密码、会话内容、工具审批数据都以明文经过公网节点，节点运营方与链路上的任何人都能看到。**敏感环境请绑定免费子域开启自动 HTTPS、改用「自定义域名 + 自备 SSL」**，或改用 **Tailscale** / **Cloudflare 命名隧道** 等全程加密通道；不要把明文随机子域当作长期生产入口。
 
 ### B. Tailscale 私网直连（仅适合国外用户，免费，无需 Cloudflare）
 

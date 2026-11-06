@@ -56,20 +56,22 @@ DSH Desktop's web UI only listens on `127.0.0.1`, so phones can't reach it. This
 Cloudflare quick tunnels and Tailscale are often unreliable on mainland China networks. The SakuraFrp (NATFrp) free tier is the easiest stable address there:
 
 - **Free tier limits**: 2 tunnels, 5 GiB of traffic per month, 10 Mbps bandwidth. **Real-name verification is required** before you can create a tunnel.
-- **Setup**: grab the access key from your SakuraFrp account page, create an HTTP tunnel and note its tunnel ID. Download `frpc` for your platform from <https://www.natfrp.com/tunnel/download> and point `sakuraBin` at it (default `frpc`, resolved via PATH).
-- **Enable**: set `tunnelMode: 'sakura'`, fill `sakuraToken` (access key) and `sakuraTunnelId`. The plugin starts `frpc -f <access-key>:<tunnel-id>`. SakuraFrp is **off by default** — the default mode is still `'quick'`.
-- **Random subdomain**: leave `sakuraDomain` empty and the plugin **auto-detects** the assigned `*.natfrp.cloud` subdomain from the `frpc` log output and uses it as the public address.
-- **Custom domain**: set `sakuraDomain` (e.g. `http://dsh.example.com`) and add a **CNAME pointing at the tunnel node address**; you must also **bring your own SSL certificate** — the plugin does not issue certificates for you.
+- **Setup**: grab the access key from your SakuraFrp account page, create a tunnel and note its tunnel ID. Download `frpc` for your platform from <https://www.natfrp.com/tunnel/download> (`0.51.0-sakura-14` or newer recommended) and point `sakuraBin` at it (default `frpc`, resolved via PATH).
+  - Per the [official docs](https://doc.natfrp.com/app/http.html), a **TCP tunnel** address must include the port, and a TCP tunnel carrying HTTP **must use a non-mainland node**. An **HTTP(S) tunnel** needs no port but **requires your own domain** (ICP-filed on mainland nodes).
+  - Recommended: claim the free `*.nyat.app` subdomain + certificate via [subdomain binding](https://doc.natfrp.com/bestpractice/domain-bind.html) and enable frpc auto-HTTPS for an encrypted `https://<subdomain>:<port>` entry point.
+- **Enable**: in Settings → Phone Mirror → SakuraFrp, choose Random domain or Custom domain, enter the access key and tunnel ID, and save. Equivalent config: `tunnelMode: 'sakura'`, `sakuraToken`, `sakuraTunnelId`. The plugin starts `frpc -f <access-key>:<tunnel-id>`. SakuraFrp is **off by default** — the default mode is still `'quick'`.
+- **Random domain (auto-detected)**: leave `sakuraDomain` empty and the plugin reads the `frpc` log, supporting the official formats `使用 >>www.example.nyat.app:10086<< 连接你的隧道`, `或使用 IP 地址连接: >>114.51.4.191:10086<<` (IP fallback, domains win), and `http://cn-hk-nf-1.natfrp.cloud:51906` (plus `*.frp-*.com` / `*.frp-*.top` / `*.natfrp.cloud`). A `*.nyat.app` host, or a log line like `已从服务器为 … 加载证书` / auto-HTTPS, yields **https**; otherwise **http**.
+- **Custom domain**: set `sakuraDomain` (e.g. `https://dsh.example.com:12345`) and add a **CNAME pointing at the tunnel node address**; you must also **bring your own SSL certificate** — the plugin does not issue certificates for you.
 
-> ⚠️ **Security disclosure (read this)**: the SakuraFrp free tier provides **plaintext HTTP — there is no TLS between the phone and the node**. The binding password, conversation content and tool-approval traffic all cross a public node in cleartext and can be read by the node operator or anyone on the path. For sensitive environments, use a **custom domain + your own SSL certificate**, or switch to an end-to-end encrypted lane such as **Tailscale** or a **Cloudflare named tunnel**. Do not treat the plaintext random subdomain as a long-term production entry point.
+> ⚠️ **Security disclosure (read this)**: without the free `*.nyat.app` subdomain or frpc auto-HTTPS, SakuraFrp serves **plaintext HTTP — there is no TLS between the phone and the node**. The binding password, conversation content and tool-approval traffic all cross a public node in cleartext and can be read by the node operator or anyone on the path. For sensitive environments, bind the free subdomain to enable auto-HTTPS, use a **custom domain + your own SSL certificate**, or switch to an end-to-end encrypted lane such as **Tailscale** or a **Cloudflare named tunnel**. Do not treat the plaintext random subdomain as a long-term production entry point.
 
-> ⚠️ **Tailscale — overseas users only**: Tailscale login and relay are unstable on mainland China networks. The private-network / Serve / Funnel lanes and the one-click wizard are kept in full, but mainland users should prefer SakuraFrp (with a custom domain + SSL) or a Cloudflare named tunnel.
+> ⚠️ **Tailscale — overseas users only**: Tailscale login and relay are unstable on mainland China networks. The private-network / Serve / Funnel lanes and the one-click wizard are kept in full, but mainland users should prefer SakuraFrp (with a custom domain + SSL or the free HTTPS subdomain) or a Cloudflare named tunnel.
 
 ## Security model
 
 A bound browser has **owner-level power** over the machine. Exposing this to the internet ≈ giving yourself a remote shell; only bind your own devices. Defense in depth: device-token gate (unbound requests are never proxied to the host) → binding password (visible only on the desktop, regenerable, timing-safe comparison) → per-source-IP sliding-window rate limiting / circuit breaking → fail-closed approvals. The device token is the real boundary.
 
-- **SakuraFrp free tier**: plaintext HTTP, **no TLS between the phone and the node**. Use a custom domain + your own SSL certificate, or Tailscale / Cloudflare named tunnels for sensitive environments.
+- **SakuraFrp free tier**: plaintext HTTP (**no TLS between the phone and the node**) unless you bind the free `*.nyat.app` subdomain or enable frpc auto-HTTPS. Use the free HTTPS subdomain / a custom domain + your own SSL certificate, or Tailscale / Cloudflare named tunnels for sensitive environments.
 - **Tailscale / cloudflared named tunnels**: encrypted end to end. Tokens stay in a local `0600` file, never committed. ⚠️ Tailscale is **overseas users only** — login and relay are unstable on mainland China networks.
 - **LAN HTTP**: cookies are unencrypted in transit; all responses carry `nosniff` / `no-referrer` / `SAMEORIGIN` headers.
 
@@ -93,7 +95,7 @@ All options are documented in the [Chinese README §4](./README.md#4-配置项).
     sakuraToken: ''         # SakuraFrp access key (secret, never commit)
     sakuraTunnelId: ''      # SakuraFrp tunnel ID
     sakuraBin: 'frpc'       # https://www.natfrp.com/tunnel/download
-    sakuraDomain: ''        # empty = auto-detect *.natfrp.cloud subdomain from frpc logs
+    sakuraDomain: ''        # empty = auto-detect >>host:port<< / node URLs (*.nyat.app, *.natfrp.cloud, frp-*.com|top) from frpc logs
     enableLan: true
     maxDevices: 5
     approvalTimeoutMs: 60000
@@ -103,7 +105,7 @@ All options are documented in the [Chinese README §4](./README.md#4-配置项).
     storeDir: ''
 ```
 
-`tunnelMode` has three values: `'quick'` (default, zero-account cloudflared temporary address, changes on restart), `'token'` (Cloudflare named tunnel with your own domain and a local `tunnel.json`), `'sakura'` (SakuraFrp free tunnel, recommended for mainland China — read the plaintext-HTTP warning above). Binding is a single password step with no desktop confirmation popup; the password stays valid until you regenerate it.
+`tunnelMode` has three values: `'quick'` (default, zero-account cloudflared temporary address, changes on restart), `'token'` (Cloudflare named tunnel with your own domain and a local `tunnel.json`), `'sakura'` (SakuraFrp free tunnel, recommended for mainland China — read the plaintext-HTTP / auto-HTTPS warning above). Binding is a single password step with no desktop confirmation popup; the password stays valid until you regenerate it.
 
 ## Feedback
 

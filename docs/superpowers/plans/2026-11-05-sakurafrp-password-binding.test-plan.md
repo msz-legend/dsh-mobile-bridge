@@ -106,7 +106,7 @@
 
 - M1 重装 bundle → DSH 设置面板出现「手机分身」，Plugin Manager 标题/描述为中文新文案。
 - M2 BindingCard 显示 12 位密码、可复制、可重生成、可设自定义。
-- M3 SakuraCard：不填密钥保存 → 提示 required；填真实 `访问密钥`+`隧道 ID`（需用户提供）→ frpc 启动、状态 running、显示 `*.natfrp.cloud` 地址（HTTP 明文提示可见）。
+- M3 SakuraCard：不填密钥保存 → 提示 required；填真实 `访问密钥`+`隧道 ID`（需用户提供）→ frpc 启动、状态 running；日志为 `>>host:port<<` 或 `http(s)://节点地址` 时都能显示地址，绑定官方免费 `*.nyat.app` 子域（自动 HTTPS）时地址应为 https。
 - M4 手机浏览器打开该地址 → 输入绑定密码 → 绑定成功进入 Web UI；**无**桌面确认弹窗、**无**扫码自动提交。
 - M5 填自定义域名（CNAME 已配 + 自备 SSL）→ 地址切换为 https 自定义域。
 - M6 Tailscale 卡片可见「⚠ 仅适合国外用户」备注。

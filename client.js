@@ -166,9 +166,9 @@ window.__ModuleLoader__.load({
       sfAddr: ZH ? '当前地址' : 'Address',
       sfKeyPh: ZH ? '访问密钥（用户信息页，非账号密码）' : 'Access key (User Info page, not your account password)',
       sfIdPh: ZH ? '隧道 ID' : 'Tunnel ID',
-      sfRandom: ZH ? '随机域名（自动识别，推荐）' : 'Random domain (auto-detected, recommended)',
-      sfCustom: ZH ? '自定义域名（需 CNAME 到节点）' : 'Custom domain (CNAME to the node)',
-      sfDomainPh: ZH ? '如 http://dsh.example.com' : 'e.g. http://dsh.example.com',
+      sfRandom: ZH ? '随机域名（自动识别 frpc 日志，推荐）' : 'Random domain (auto-detected from frpc logs, recommended)',
+      sfCustom: ZH ? '自定义域名（CNAME + 自备证书）' : 'Custom domain (CNAME + your own certificate)',
+      sfDomainPh: ZH ? '如 https://dsh.example.com:12345' : 'e.g. https://dsh.example.com:12345',
       sfDownload: ZH ? '下载 frpc（natfrp.com）' : 'Download frpc (natfrp.com)',
       sfSave: ZH ? '保存并启用' : 'Save & enable',
       sfClear: ZH ? '停用（回到 cloudflared 临时隧道）' : 'Disable (back to cloudflared quick)',
@@ -178,11 +178,11 @@ window.__ModuleLoader__.load({
       sfBadDomain: ZH ? '自定义域名必须以 http:// 或 https:// 开头。' : 'Custom domain must start with http:// or https://.',
       sfReachable: ZH ? '公网可达' : 'Public reachable',
       sfHelp: ZH
-        ? '免费档 2 条隧道 / 5 GiB 月流量 / 10 Mbps，需实名认证。随机域名由 frpc 日志里的 *.natfrp.cloud / frp-*.top 自动识别；自定义域名请 CNAME 到节点地址，并在节点侧自备 SSL 证书。'
-        : 'Free tier: 2 tunnels / 5 GiB monthly / 10 Mbps, real-name verification required. The random domain is read from frpc logs (*.natfrp.cloud / frp-*.top); for a custom domain, CNAME it to the node and provide your own SSL certificate.',
+        ? '免费档 2 条隧道 / 5 GiB 月流量 / 10 Mbps，需实名认证。随机域名：官方免费 *.nyat.app 子域自带证书并开启自动 HTTPS，插件会从 frpc 日志的 >>域名:端口<< 或 http(s):// 节点地址自动识别（也可能是 *.natfrp.cloud / frp-*.com / frp-*.top）。用 TCP 隧道承载 HTTP 时必须选非内地节点；内地节点的 HTTP(S) 隧道要求已备案的自有域名。自定义域名：把域名 CNAME 到节点地址，并自备 SSL 证书。'
+        : 'Free tier: 2 tunnels / 5 GiB monthly / 10 Mbps, real-name verification required. Random domain: the official free *.nyat.app subdomain ships with a certificate and auto-HTTPS; the plugin reads frpc logs for >>host:port<< or http(s):// node URLs (also *.natfrp.cloud / frp-*.com / frp-*.top). A TCP tunnel carrying HTTP must use a non-mainland node; HTTP(S) tunnels on mainland nodes require your own ICP-filed domain. Custom domain: CNAME it to the node and provide your own SSL certificate.',
       sfHttpWarn: ZH
-        ? '⚠ 免费档是明文 HTTP：手机到节点之间不加密。敏感场景请用自定义域名 + HTTPS 或改用命名隧道。'
-        : '⚠ Free tier is plain HTTP: traffic from the phone to the node is unencrypted. Use a custom domain with HTTPS or a named tunnel for sensitive work.',
+        ? '⚠ 若未绑定 *.nyat.app 免费子域、frpc 也没开自动 HTTPS，节点返回的是明文 HTTP：手机到节点之间不加密。敏感场景请绑定免费子域开启自动 HTTPS，或改自定义域名 + HTTPS / 命名隧道。'
+        : '⚠ Without a free *.nyat.app subdomain or frpc auto-HTTPS, the node serves plain HTTP — phone-to-node traffic is unencrypted. For sensitive work, bind the free subdomain (auto-HTTPS), or use a custom domain with HTTPS / a named tunnel.',
       sfRunning: ZH ? '运行中' : 'running',
       sfDown: ZH ? '未运行' : 'not running',
       sfKeySaved: ZH ? '访问密钥已保存（仅本地）' : 'Access key saved (local only)',
