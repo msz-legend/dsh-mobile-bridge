@@ -12,14 +12,14 @@ const run = async () => {
   // 1. 预设清单：所有宣传支持的通道都在。
   {
     const names = Object.keys(CHANNELS)
-    for (const name of ['ntfy', 'bark', 'wecomapp', 'feishu', 'dingtalk', 'wecom', 'telegram', 'webhook']) {
+    for (const name of ['ntfy', 'bark', 'wecomapp', 'feishu', 'dingtalk', 'wecom', 'wecomaibot', 'telegram', 'webhook']) {
       assert.ok(names.includes(name), `missing channel preset: ${name}`)
     }
-    // 每个通道都带配置步骤（用户要照着配）；build 可为 null（wecomapp 走官方 API 特殊分支）。
+    // 每个通道都带配置步骤（用户要照着配）；build 可为 null（wecomapp 走官方 API、wecomaibot 走 WebSocket 特殊分支）。
     for (const [name, preset] of Object.entries(CHANNELS)) {
       assert.ok(Array.isArray(preset.steps) && preset.steps.length > 0, `${name} must carry setup steps`)
       assert.ok(Array.isArray(preset.fields) && preset.fields.length > 0, `${name} must declare fields`)
-      if (name !== 'wecomapp') assert.equal(typeof preset.build, 'function', `${name} must have build()`)
+      if (name !== 'wecomapp' && name !== 'wecomaibot') assert.equal(typeof preset.build, 'function', `${name} must have build()`)
     }
     console.log('ok  channel presets complete with setup steps')
   }
