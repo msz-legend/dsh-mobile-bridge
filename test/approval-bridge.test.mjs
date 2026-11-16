@@ -48,10 +48,18 @@ function makeHarness(options = {}) {
   const always = createAlways({ store, config, log })
   const origins = { originOf: (id) => (options.remote?.includes(String(id)) ? 'remote' : 'local') }
   const args = { take: () => options.observed }
-  const bridge = createApprovalBridge({ config, hub, always, args, origins, log, now: Date.now })
+  const dispatches = []
+  const notify = options.notify === false
+    ? undefined
+    : { dispatch: async (payload) => dispatches.push(payload) }
+  const bridge = createApprovalBridge({
+    config, hub, always, args, origins, log, now: Date.now, notify,
+    getTitle: options.getTitle,
+  })
   return {
     bridge,
     events,
+    dispatches,
     always,
     setOnline: (value) => {
       online = value
@@ -246,6 +254,51 @@ await test('replayRequests re-sends pending cards verbatim, skips settled ones',
   const after = []
   h.bridge.replayRequests((payload) => after.push(payload))
   assert.equal(after.length, 0, '已决审批不回放')
+})
+
+// 14) 会话名称：getTitle 命中时卡片与外推通知都带名称；未命中时保持旧文案
+await test('session title flows into approval card and external push', async () => {
+  const named = makeHarness({
+    getTitle: (id) => (id === 'session-x' ? '重构缓存层' : undefined),
+    observed: { args: { command: 'git push' }, tool: 'bash' },
+  })
+  const pending = named.bridge.handler(req(), async () => 'next-value')
+  const request = approvalOf(named.events)
+  assert.equal(request.sessionTitle, '重构缓存层', '卡片请求带会话名称')
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  const push = named.dispatches.at(-1)
+  assert.ok(push, '外部通知已发出')
+  assert.equal(push.title, '工具审批')
+  assert.equal(push.body, '会话「重构缓存层」有工具调用等待你的审批：bash')
+  named.bridge.decide({ requestId: request.requestId, decision: 'once' })
+  await pending
+})
+
+await test('approval push falls back to legacy body without a title', async () => {
+  const plain = makeHarness({ observed: { args: { command: 'ls' }, tool: 'bash' } })
+  const pending = plain.bridge.handler(req({ agent: { id: 'session-untitled' } }), async () => 'next-value')
+  const request = approvalOf(plain.events)
+  assert.equal(request.sessionTitle, undefined)
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  assert.equal(plain.dispatches.at(-1).body, '有工具调用等待你的审批：bash')
+  plain.bridge.decide({ requestId: request.requestId, decision: 'once' })
+  await pending
+})
+
+await test('a throwing getTitle never breaks the approval flow', async () => {
+  const hostile = makeHarness({
+    getTitle: () => {
+      throw new Error('boom')
+    },
+    observed: { args: { command: 'ls' }, tool: 'bash' },
+  })
+  const pending = hostile.bridge.handler(req({ agent: { id: 'session-hostile' } }), async () => 'next-value')
+  const request = approvalOf(hostile.events)
+  assert.equal(request.sessionTitle, undefined)
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  assert.equal(hostile.dispatches.at(-1).body, '有工具调用等待你的审批：bash')
+  hostile.bridge.decide({ requestId: request.requestId, decision: 'once' })
+  await pending
 })
 
 console.log(`\n${passed} checks passed`)

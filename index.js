@@ -212,14 +212,35 @@ export function apply(ctx, raw) {
     // publicBase 是异步解析的（隧道晚启动），dispatch 时实时取已缓存值。
     publicBase: () => publicBaseCache ?? config.publicBase ?? '',
   })
-  const bridge = createApprovalBridge({ config, hub, always, args, origins, log, notify })
+  // 会话名称：宿主 dsh-session-title 服务（ctx.sessionTitle.get(session)）同步读最新折叠标题，
+  // 与 GUI 侧边栏显示的会话名同源；服务未挂载或读失败时静默退 undefined（推送退回短 id 文案）。
+  const sessionTitleOf = (sessionOrId) => {
+    try {
+      const service = ctx.sessionTitle
+      if (service === undefined || typeof service.get !== 'function') return undefined
+      const session = typeof sessionOrId === 'string' ? ctx.sessions?.get?.(sessionOrId) : sessionOrId
+      if (session === undefined) return undefined
+      const snapshot = service.get(session)
+      const title = snapshot?.title
+      return typeof title === 'string' && title !== '' ? title : undefined
+    } catch {
+      return undefined
+    }
+  }
+
+  const bridge = createApprovalBridge({ config, hub, always, args, origins, log, notify, getTitle: sessionTitleOf })
   const disposeApproval = ctx.on('approval/request', bridge.handler, { prepend: true, global: true })
   log(`approval bridge attached (timeout local=${config.approvalTimeoutMs}ms remote=${config.approvalTimeoutRemoteMs}ms)`)
 
   // 任务结束态通知：订阅宿主 session/event 的 turn/end（唯一带精确终态原因的事件），
   // 把 completed/aborted/blocked/error/max-tokens/interrupted/forked 推给外部推送通道。
   // 默认开启；taskNotifyEnabled: false 可关掉（通知量大时有用）。
-  const taskNotifier = createTaskNotifier({ notify, log })
+  const taskNotifier = createTaskNotifier({
+    notify,
+    log,
+    // session/title 事件缓存未命中（如进程重启后旧会话）时，从宿主标题服务兜底取名称。
+    getTitle: (session) => sessionTitleOf(session),
+  })
   const disposeTaskNotify = config.taskNotifyEnabled
     ? ctx.on('session/event', taskNotifier.handle, { global: true })
     : undefined

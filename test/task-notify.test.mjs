@@ -199,6 +199,72 @@ try {
     assert.equal(legacy, '会话 sess-a1b 第 3 轮已完成')
   })
 
+  await run('T14 a session/title event caches the name used by later turn/end pushes', async () => {
+    const notify = makeNotify()
+    const notifier = createTaskNotifier({ notify, log })
+    const session = sessionOf('sess-titled', undefined)
+    notifier.handle(session, { type: 'session/title', data: { title: '重构缓存层', messageSeqs: [], source: { kind: 'user' } } })
+    notifier.handle(session, turnEnd(2, { kind: 'completed' }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    assert.equal(notify.calls.length, 1)
+    assert.equal(notify.calls[0].body, '会话「重构缓存层」第 2 轮已完成')
+    // 空标题不覆盖缓存，也不进入文案
+    notifier.handle(session, { type: 'session/title', data: { title: '' } })
+    notifier.handle(session, turnEnd(3, { kind: 'completed' }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    assert.match(notify.calls[1].body, /重构缓存层/)
+    notifier.dispose()
+  })
+
+  await run('T15 getTitle callback is the fallback when no title event arrived', async () => {
+    const notify = makeNotify()
+    let calls = 0
+    const notifier = createTaskNotifier({
+      notify,
+      log,
+      getTitle: (session) => {
+        calls += 1
+        return session?.id === 'sess-boot' ? '重启前的工作' : undefined
+      },
+    })
+    notifier.handle(sessionOf('sess-boot', undefined), turnEnd(1, { kind: 'completed' }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    assert.equal(notify.calls[0].body, '会话「重启前的工作」第 1 轮已完成')
+    // 命中过一次的标题会缓存，后续 turn 不再依赖回调也能取到
+    notifier.handle(sessionOf('sess-boot', undefined), turnEnd(2, { kind: 'completed' }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    assert.match(notify.calls[1].body, /重启前的工作/)
+    assert.equal(calls, 1, '回调只在缓存未命中时被调用')
+    notifier.dispose()
+  })
+
+  await run('T16 a throwing getTitle never breaks the notify path', async () => {
+    const notify = makeNotify()
+    const notifier = createTaskNotifier({
+      notify,
+      log,
+      getTitle: () => {
+        throw new Error('service gone')
+      },
+    })
+    notifier.handle(sessionOf('sess-hostile', undefined), turnEnd(1, { kind: 'completed' }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    assert.equal(notify.calls.length, 1)
+    assert.equal(notify.calls[0].body, '会话 sess-hos 第 1 轮已完成')
+    notifier.dispose()
+  })
+
+  await run('T17 describeTurnEnd prefers the name but keeps the short-id fallback', () => {
+    const named = describeTurnEnd('session-abcdef12-3456', 7, { kind: 'completed' }, '重构缓存层')
+    assert.equal(named.body, '会话「重构缓存层」第 7 轮已完成')
+    const aborted = describeTurnEnd('session-abcdef12-3456', 7, { kind: 'aborted', reason: { kind: 'parent' } }, '重构缓存层')
+    assert.equal(aborted.body, '会话「重构缓存层」第 7 轮被中止（父任务中止）')
+    // 空串/非字符串名称一律退回短 id，与旧路径完全一致
+    assert.equal(describeTurnEnd('abcdef123456', 7, { kind: 'completed' }, '').body, '会话 abcdef12 第 7 轮已完成')
+    assert.equal(describeTurnEnd('abcdef123456', 7, { kind: 'completed' }, undefined).body, '会话 abcdef12 第 7 轮已完成')
+    assert.equal(describeTurnEnd('abcdef123456', 7, { kind: 'completed' }, 42).body, '会话 abcdef12 第 7 轮已完成')
+  })
+
   console.log(`\n${passed} checks passed`)
 } catch (error) {
   console.error('FAIL', error?.message ?? error, error?.stack ?? '')
