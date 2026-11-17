@@ -15,7 +15,11 @@
     "tooMany": "Too many attempts. Please try again shortly.",
     "busy": "The binding channel is busy. Please try again shortly.",
     "limit": "Device limit reached ({max}). Revoke an old device on the desktop first.",
-    "submit": "Bind"
+    "submit": "Bind",
+    "remain": "{n} attempts left before a 1-minute rate limit",
+    "qrToggle": "Tap to show QR code",
+    "showPw": "Show",
+    "hidePw": "Hide"
   },
   "approval": {
     "title": "Tool approval",
@@ -29,5 +33,13 @@
     "normal": "Needs confirmation",
     "riskHigh": "High risk",
     "riskNormal": "Needs confirmation"
+  },
+  "push": {
+    "testTitle": "Phone Mirror push test",
+    "testBody": "This is a test push. Receiving it means the channel is configured correctly."
+  },
+  "tunnel": {
+    "alertDown": "Phone Mirror tunnel disconnected",
+    "alertFailing": "Phone Mirror tunnel keeps failing"
   }
 }

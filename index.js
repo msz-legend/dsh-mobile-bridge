@@ -29,6 +29,7 @@ import { createHostLogin } from './lib/host-login.js'
 import { registerRoutes, DEVICE_COOKIE } from './lib/routes.js'
 import { createNotifyDispatcher } from './lib/push.js'
 import { createTaskNotifier } from './lib/task-notify.js'
+import { createTunnelAlert } from './lib/tunnel-alert.js'
 import { resolvePublicBase } from './lib/tunnel.js'
 import { installIndexInjection } from './lib/index-inject.js'
 
@@ -319,6 +320,11 @@ export function apply(ctx, raw) {
     publicBaseCache = undefined
   }
 
+  // #10 隧道持续失败推送告警：轮询 tunnel 稳定代理的 status()，
+  // 进程掉线/新错误时把告警推到已配置的外部通道（同因 10 分钟节流）。
+  const tunnelAlert = createTunnelAlert({ tunnel, notify, log })
+  tunnelAlert.start()
+
   let edge
   let routes
 
@@ -415,6 +421,11 @@ export function apply(ctx, raw) {
   ctx.effect(
     () => () => {
       clearInterval(heartbeat)
+      try {
+        tunnelAlert.stop()
+      } catch {
+        /* ignore */
+      }
       try {
         disposeApproval?.()
       } catch {

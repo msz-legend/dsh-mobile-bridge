@@ -15,7 +15,11 @@
     "tooMany": "尝试过于频繁，请稍后再试",
     "busy": "绑定通道忙，请稍后再试。",
     "limit": "已达到设备上限（{max}），请先在桌面端撤销旧设备。",
-    "submit": "绑定"
+    "submit": "绑定",
+    "remain": "还可再试 {n} 次，之后将限速 1 分钟",
+    "qrToggle": "点按显示二维码",
+    "showPw": "显示",
+    "hidePw": "隐藏"
   },
   "approval": {
     "title": "工具审批",
@@ -29,5 +33,13 @@
     "normal": "需要确认",
     "riskHigh": "高风险",
     "riskNormal": "需要确认"
+  },
+  "push": {
+    "testTitle": "手机分身推送测试",
+    "testBody": "这是一条测试推送，收到即代表通道配置有效。"
+  },
+  "tunnel": {
+    "alertDown": "手机分身隧道已断开",
+    "alertFailing": "手机分身隧道持续失败"
   }
 }

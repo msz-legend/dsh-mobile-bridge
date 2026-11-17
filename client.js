@@ -96,6 +96,9 @@ window.__ModuleLoader__.load({
         ? '设备列表加载失败：请刷新页面；若仍失败，说明桌面插件未加载最新版本，请重启 DSH Desktop 后再试。'
         : 'Failed to load devices. Refresh; if it persists, restart DSH Desktop so the plugin loads the latest version.',
       clientLoaded: ZH ? '手机端已加载' : 'Client half loaded',
+      groupBasic: ZH ? '基础信息' : 'Basic',
+      groupFeature: ZH ? '插件功能' : 'Features',
+      groupNetwork: ZH ? '网络与推送' : 'Network & Push',
       refresh: ZH ? '刷新' : 'Refresh',
       tunnel: ZH ? '公网隧道' : 'Tunnel',
       tunnelStarting: ZH ? '启动中…' : 'starting…',
@@ -200,6 +203,28 @@ window.__ModuleLoader__.load({
       channelRemove: ZH ? '删除' : 'Remove',
       channelSaved: ZH ? '已保存。' : 'Saved.',
       channelClose: ZH ? '取消' : 'Cancel',
+      // #6 审批卡：主操作提前 + always 二次确认 + 队列角标
+      queued: ZH ? '还有 {n} 项待审批' : '{n} more pending',
+      alwaysAsk: ZH ? '再次点按确认「始终允许」' : 'Tap again to confirm “Always allow”',
+      // #1 always 规则列表卡（桌面端）
+      rulesTitle: ZH ? '「始终允许」规则' : '“Always allow” rules',
+      rulesEmpty: ZH ? '暂无规则。审批卡上点「始终允许」后会出现在这里。' : 'No rules yet. Tap “Always allow” on an approval card to add one.',
+      rulesClear: ZH ? '清空全部' : 'Clear all',
+      confirmRulesClear: ZH ? '确认清空全部「始终允许」规则？清空后同类调用需要重新确认。' : 'Clear all “Always allow” rules? Similar calls will need approval again.',
+      rulesCleared: ZH ? '已清空。' : 'Cleared.',
+      rulesLoadError: ZH ? '规则加载失败，请刷新。' : 'Failed to load rules — refresh.',
+      // #2 推送通道测试按钮 + 真实错误回显
+      channelTest: ZH ? '发送测试' : 'Send test',
+      channelTesting: ZH ? '发送中…' : 'Sending…',
+      channelTestOk: ZH ? '测试推送已送达（HTTP {code}）。' : 'Test push delivered (HTTP {code}).',
+      channelTestFail: ZH ? '测试失败：{err}' : 'Test failed: {err}',
+      channelSaveFail: ZH ? '保存失败：{err}' : 'Save failed: {err}',
+      // #9 手机端解绑本机
+      unbind: ZH ? '解绑本机' : 'Unbind this device',
+      confirmUnbind: ZH
+        ? '确认解绑本机？解绑后此手机立即断开，需重新用绑定密码绑定才能接入。'
+        : 'Unbind this device? It disconnects immediately and must re-bind with the binding password.',
+      unbound: ZH ? '本机已解绑。' : 'This device is unbound.',
     }
 
     const CSS = `
@@ -237,6 +262,12 @@ window.__ModuleLoader__.load({
 /* DMB-012：禁用态保持可供性——主按钮禁用去色，避免过期卡「仅本次」仍像可点。 */
 .dmb-btn.primary[disabled]{background:rgba(37,99,235,.38);border-color:transparent;color:rgba(255,255,255,.85)}
 .dmb-btn.danger[disabled]{background:rgba(220,38,38,.38);border-color:transparent;color:rgba(255,255,255,.85)}
+/* #6 always 二次确认：待确认态用琥珀描边提示「再点一次才生效」。 */
+.dmb-btn.armed{border-color:#f59e0b;color:#f59e0b;box-shadow:0 0 0 1px rgba(245,158,11,.35)}
+.dmb-armed{color:#b45309;background:rgba(245,158,11,.12)}
+/* #6 队列角标：悬浮在审批卡上方，提示还有更多待审批。 */
+.dmb-queue-badge{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:2147483001;
+  background:rgba(15,23,42,.85);color:#e2e8f0;font-size:12px;padding:5px 12px;border-radius:999px;pointer-events:none}
 /* DMB-012：全局按压反馈（触屏 pointerdown 即 :active；桌面 mousedown 同样生效）。
    只做亮度/透明度类安全属性，不改布局。媒体查询限定触屏/窄屏，避免桌面 hover 交互被拖累。 */
 @media (hover: none), (pointer: coarse){
@@ -255,21 +286,20 @@ window.__ModuleLoader__.load({
   .dmb-badge.normal{background:#1e1b4b;color:#c7d2fe;border-color:#3730a3}
 }
 .dmb-settings{padding:16px;font:13px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif;width:100%;max-width:100%;box-sizing:border-box;overflow-wrap:anywhere;overflow:auto;max-height:100%;-webkit-overflow-scrolling:touch}
-.dmb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,120px),1fr));gap:10px;margin:12px 0}
+.dmb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
 .dmb-cell{border:1px solid rgba(127,127,127,.25);border-radius:12px;padding:10px 12px;background:rgba(127,127,127,.05);min-width:0;overflow-wrap:anywhere}
 .dmb-cell b{display:block;font-size:19px;line-height:1.2;margin-top:2px;word-break:break-word}
 .dmb-muted{color:var(--dsw-alias-label-tertiary,#666);font-size:12px;overflow-wrap:anywhere}
 .dmb-addr{word-break:break-all;overflow-wrap:anywhere;font:12px/1.5 ui-monospace,Consolas,monospace;background:rgba(127,127,127,.08);padding:8px 10px;border-radius:8px;margin:8px 0;max-width:100%;box-sizing:border-box}
 .dmb-qr{display:block;width:100%;max-width:220px;margin:10px auto;border-radius:10px;background:#fff;padding:6px;box-sizing:border-box}
 .dmb-settings .dmb-btn{margin-top:8px;width:100%;max-width:100%;box-sizing:border-box}
-.dmb-devices{margin-top:16px;border-top:1px solid rgba(127,127,127,.25);padding-top:14px}
-.dmb-ts{margin-top:16px;border-top:1px solid rgba(127,127,127,.25);padding-top:14px}
+.dmb-settings .dmb-device-actions .dmb-btn{width:auto;max-width:none;margin-top:0;padding:6px 10px;min-height:32px;font-size:13px}
+.dmb-settings .dmb-bind .dmb-device-actions .dmb-btn{width:100%;max-width:100%;margin-top:8px;padding:9px 14px;min-height:44px;font-size:14px}
+.dmb-devices,.dmb-ts,.dmb-cf,.dmb-bind,.dmb-sf{margin-top:0;border:none;padding-top:0}
 .dmb-ts .dmb-device-actions{margin-top:8px;justify-content:flex-start}
-.dmb-cf{margin-top:16px;border-top:1px solid rgba(127,127,127,.25);padding-top:14px}
 .dmb-cf input{width:100%;box-sizing:border-box;margin-top:6px;padding:8px 10px;border:1px solid rgba(127,127,127,.35);
   border-radius:8px;font:inherit;font-size:13px;background:var(--dsw-specific-input-major,#fff);color:inherit}
 .dmb-cf .dmb-device-actions{margin-top:8px;justify-content:flex-start}
-.dmb-bind,.dmb-sf{margin-top:16px;border-top:1px solid rgba(127,127,127,.25);padding-top:14px}
 .dmb-bind input,.dmb-sf input{width:100%;box-sizing:border-box;margin-top:6px;padding:8px 10px;border:1px solid rgba(127,127,127,.35);
   border-radius:8px;font:inherit;font-size:13px;background:var(--dsw-specific-input-major,#fff);color:inherit}
 .dmb-bind .dmb-device-actions,.dmb-sf .dmb-device-actions{margin-top:8px;justify-content:flex-start}
@@ -299,6 +329,12 @@ window.__ModuleLoader__.load({
 .dmb-notify-row .dmb-btn{width:auto;max-width:none;margin-top:0;min-height:36px;padding:6px 14px}
 .dmb-steps{margin:8px 0 10px;padding-left:20px;font-size:12px;color:var(--dsw-alias-label-tertiary,#666);line-height:1.6}
 .dmb-steps li{margin-bottom:4px;overflow-wrap:anywhere}
+
+/* 设置面板分组卡片：把 8 个平铺区块归成 3 组，每组一张卡 */
+.dmb-group{border:1px solid rgba(127,127,127,.2);border-radius:12px;background:rgba(127,127,127,.03);margin-bottom:16px;overflow:hidden}
+.dmb-group-title{font-weight:600;font-size:13px;padding:10px 14px;border-bottom:1px solid rgba(127,127,127,.12);color:var(--dsw-alias-label-primary,#111)}
+.dmb-group-body{padding:12px 14px}
+
 /* 窄屏设置抽屉：改成「列表 → 详情」两级导航（逻辑见 installSettingsNav）。
    宿主的设置抽屉是「左导航 + 右内容」双栏固定布局，360dp 下导航吃掉大半宽度、
    内容只剩一点点，文字叠在一起。窄屏下这里改为：
@@ -510,13 +546,26 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
     function Card(props) {
       const { request, onDecide } = props
       const [busy, setBusy] = react.useState(false)
+      // #6 always 二次确认：第一次点「始终允许」只进入待确认态，再次点按才真正提交。
+      const [alwaysArmed, setAlwaysArmed] = react.useState(false)
       const remaining = useCountdown(request.expiresAt)
       const expired = remaining <= 0
       const seconds = Math.ceil(remaining / 1000)
       const high = request.risk === 'high'
 
+      react.useEffect(() => {
+        // 超时后不再等待用户：自动撤下卡片（fail-closed 已在后端定时器里执行）。
+        if (!expired) return
+        const t = setTimeout(() => onDecide(request.requestId, 'dismiss'), 2500)
+        return () => clearTimeout(t)
+      }, [expired])
+
       const decide = (decision) => {
         if (busy || expired) return
+        if (decision === 'always' && !alwaysArmed) {
+          setAlwaysArmed(true)
+          return
+        }
         setBusy(true)
         onDecide(request.requestId, decision).finally(() => setBusy(false))
       }
@@ -549,6 +598,9 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
             request.argsRecognized === false
               ? h('div', { className: 'dmb-pattern' }, T.argsUnknown)
               : null,
+            alwaysArmed && !expired
+              ? h('div', { className: 'dmb-pattern dmb-armed' }, T.alwaysAsk)
+              : null,
           ),
           h(
             'div',
@@ -556,18 +608,23 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
             h('span', { className: 'dmb-timer' }, expired ? T.timeout : seconds + T.seconds),
             h(
               'button',
-              { className: 'dmb-btn danger', disabled: busy || expired, onClick: () => decide('reject'), type: 'button' },
-              T.reject,
-            ),
-            h(
-              'button',
-              { className: 'dmb-btn', disabled: busy || expired, onClick: () => decide('always'), type: 'button' },
-              T.always,
-            ),
-            h(
-              'button',
               { className: 'dmb-btn primary', disabled: busy || expired, onClick: () => decide('once'), type: 'button' },
               T.once,
+            ),
+            h(
+              'button',
+              {
+                className: 'dmb-btn' + (alwaysArmed ? ' armed' : ''),
+                disabled: busy || expired,
+                onClick: () => decide('always'),
+                type: 'button',
+              },
+              alwaysArmed ? '✓ ' + T.always : T.always,
+            ),
+            h(
+              'button',
+              { className: 'dmb-btn danger', disabled: busy || expired, onClick: () => decide('reject'), type: 'button' },
+              T.reject,
             ),
           ),
         ),
@@ -582,9 +639,19 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
         const request = items[0]
         const onDecide = (requestId, decision) => {
           setItems((previous) => previous.filter((entry) => entry.requestId !== requestId))
+          if (decision === 'dismiss') return Promise.resolve()
           return postDecision(requestId, decision).catch(() => undefined)
         }
-        tree = h(Card, { request, onDecide })
+        // #6 队列角标：后续待审批数量直接显示在卡头上方，不再被队列吞掉。
+        const queuedMore = items.length - 1
+        tree = react.createElement(
+          react.Fragment,
+          null,
+          queuedMore > 0
+            ? h('div', { className: 'dmb-queue-badge' }, T.queued.replace('{n}', String(queuedMore)))
+            : null,
+          h(Card, { request, onDecide }),
+        )
       }
       if (tree === null) return null
       return reactDom ? reactDom.createPortal(tree, document.body) : tree
@@ -781,6 +848,109 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
               ),
             )
           : null,
+      )
+    }
+
+    /** #1 「始终允许」规则列表卡（桌面端可视化管理）：列表 + 单条撤销 + 一键清空。 */
+    function RulesCard() {
+      const [rules, setRules] = react.useState(undefined) // null = 加载失败
+      const [busy, setBusy] = react.useState(false)
+      const [note, setNote] = react.useState(undefined)
+
+      const reload = react.useCallback(() => {
+        fetch(BASE + '/rules.json', { credentials: 'same-origin' })
+          .then((response) => (response.ok ? response.json() : undefined))
+          .then((json) => setRules(Array.isArray(json?.rules) ? json.rules : null))
+          .catch(() => setRules(null))
+      }, [])
+      react.useEffect(reload, [reload])
+
+      const act = (path, body, question) => {
+        if (busy) return
+        if (window.confirm(question) !== true) return
+        setBusy(true)
+        fetch(BASE + path, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body ?? {}),
+        })
+          .then((response) => {
+            if (response.ok) reload()
+          })
+          .catch(() => undefined)
+          .finally(() => setBusy(false))
+      }
+
+      return h(
+        'div',
+        { className: 'dmb-devices' },
+        h('div', { className: 'dmb-devices-title' }, T.rulesTitle),
+        rules === null ? h('div', { className: 'dmb-muted' }, T.rulesLoadError) : null,
+        Array.isArray(rules) && rules.length === 0
+          ? h('div', { className: 'dmb-muted' }, T.rulesEmpty)
+          : null,
+        Array.isArray(rules)
+          ? rules.map((rule) =>
+              h(
+                'div',
+                { className: 'dmb-device', key: rule.id },
+                h(
+                  'div',
+                  { className: 'dmb-device-main' },
+                  h('div', { className: 'dmb-device-name' }, rule.label || rule.toolName || rule.id),
+                  h(
+                    'div',
+                    { className: 'dmb-device-meta' },
+                    `${rule.toolName ?? ''}${rule.scope === 'global' ? ' · global' : ''}`,
+                  ),
+                  h('div', { className: 'dmb-device-meta' }, shortTime(rule.createdAt)),
+                ),
+                h(
+                  'div',
+                  { className: 'dmb-device-actions' },
+                  h(
+                    'button',
+                    {
+                      type: 'button',
+                      className: 'dmb-btn danger',
+                      disabled: busy,
+                      onClick: () => act('/rules/revoke', { ruleId: rule.id }, T.confirmRevoke),
+                    },
+                    T.revoke,
+                  ),
+                ),
+              ),
+            )
+          : null,
+        Array.isArray(rules) && rules.length > 0
+          ? h(
+              'div',
+              { className: 'dmb-device-actions' },
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dmb-btn danger',
+                  disabled: busy,
+                  onClick: () => {
+                    if (busy) return
+                    if (window.confirm(T.confirmRulesClear) !== true) return
+                    setBusy(true)
+                    fetch(BASE + '/rules/clear', { method: 'POST', credentials: 'same-origin' })
+                      .then(() => {
+                        setNote(T.rulesCleared)
+                        reload()
+                      })
+                      .catch(() => undefined)
+                      .finally(() => setBusy(false))
+                  },
+                },
+                T.rulesClear,
+              ),
+            )
+          : null,
+        note ? h('div', { className: 'dmb-muted' }, note) : null,
       )
     }
 
@@ -1409,6 +1579,11 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
 
       const presetOf = (name) => presets.find((preset) => preset.name === name)
 
+      // #2 真实错误回显：保存失败不再只显示字面 'error'，透传后端错误码与 HTTP 状态。
+      const errText = (err, status) => {
+        const code = typeof err === 'string' && err !== '' ? err : `HTTP ${status ?? '?'}`
+        return T.channelSaveFail.replace('{err}', code)
+      }
       const save = () => {
         if (editing === undefined || busy) return
         setBusy(true)
@@ -1418,10 +1593,33 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ channel: editing.channel, fields: editing.fields, enabled: true }),
         })
-          .then((response) => response.json().catch(() => ({})))
-          .then((json) => setNote(json?.ok === true ? T.channelSaved : 'error'))
+          .then((response) =>
+            response.json().catch(() => ({})).then((json) => ({ status: response.status, json })),
+          )
+          .then(({ status, json }) => setNote(json?.ok === true ? T.channelSaved : errText(json?.error, status)))
           .then(reload)
-          .catch(() => setNote('error'))
+          .catch(() => setNote(errText('network')))
+          .finally(() => setBusy(false))
+      }
+      // #2 通道试发：用当前（或编辑中的）字段直接调 /push/test，验证配置真的能送到手机。
+      const testChannel = (channel, fields) => {
+        if (busy) return
+        setBusy(true)
+        setNote(T.channelTesting)
+        fetch(BASE + '/push/test', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ channel, fields }),
+        })
+          .then((response) =>
+            response.json().catch(() => ({})).then((json) => ({ status: response.status, json })),
+          )
+          .then(({ status, json }) => {
+            if (json?.ok === true) setNote(T.channelTestOk.replace('{code}', String(json.status ?? status)))
+            else setNote(T.channelTestFail.replace('{err}', typeof json?.error === 'string' && json.error !== '' ? json.error : `HTTP ${status ?? '?'}`))
+          })
+          .catch(() => setNote(T.channelTestFail.replace('{err}', 'network')))
           .finally(() => setBusy(false))
       }
       const remove = (channel) => {
@@ -1455,10 +1653,20 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
               { className: 'dmb-device-actions' },
               h(
                 'button',
+                {
+                  type: 'button',
+                  className: 'dmb-btn',
+                  disabled: busy,
+                  onClick: () => testChannel(name, config.fields ?? {}),
+                },
+                T.channelTest,
+              ),
+              h(
+                'button',
                 { type: 'button', className: 'dmb-btn', onClick: () => setEditing({ channel: name, fields: { ...(config.fields ?? {}) } }) },
                 T.refresh,
               ),
-              h('button', { type: 'button', className: 'dmb-btn danger', onClick: () => remove(name) }, T.channelRemove),
+              h('button', { type: 'button', className: 'dmb-btn danger', disabled: busy, onClick: () => remove(name) }, T.channelRemove),
             ),
           ),
         ),
@@ -1505,12 +1713,56 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
                 'div',
                 { className: 'dmb-device-actions' },
                 h('button', { type: 'button', className: 'dmb-btn primary', onClick: save, disabled: busy }, T.channelSave),
+                h(
+                  'button',
+                  { type: 'button', className: 'dmb-btn', onClick: () => testChannel(editing.channel, editing.fields), disabled: busy },
+                  T.channelTest,
+                ),
                 h('button', { type: 'button', className: 'dmb-btn', onClick: () => setEditing(undefined) }, T.channelClose),
               ),
             ),
         note ? h('div', { className: 'dmb-muted' }, note) : null,
       )
     }
+    /** #9 手机端「解绑本机」：设备 cookie 自证身份，只能撤销调用方自己（服务端同样只接受自撤）。 */
+    function UnbindSelf() {
+      const [session, setSession] = react.useState(undefined) // { deviceId, name } | null
+      const [busy, setBusy] = react.useState(false)
+      const [note, setNote] = react.useState(undefined)
+
+      react.useEffect(() => {
+        fetch(BASE + '/session.json', { credentials: 'same-origin' })
+          .then((response) => (response.ok ? response.json() : undefined))
+          .then((json) => setSession(json?.ok === true ? { deviceId: json.deviceId, name: json.name } : null))
+          .catch(() => setSession(null))
+      }, [])
+
+      const unbind = () => {
+        if (busy) return
+        if (window.confirm(T.confirmUnbind) !== true) return
+        setBusy(true)
+        fetch(BASE + '/session/unbind', { method: 'POST', credentials: 'same-origin' })
+          .then((response) => {
+            if (response.ok) setNote(T.unbound)
+            else setNote(T.bindFailed)
+          })
+          .catch(() => setNote(T.bindFailed))
+          .finally(() => setBusy(false))
+      }
+
+      if (session === null || session === undefined) return null
+      return h(
+        'div',
+        { className: 'dmb-device-actions' },
+        note ? h('div', { className: 'dmb-muted' }, note) : null,
+        h(
+          'button',
+          { type: 'button', className: 'dmb-btn danger', disabled: busy, onClick: unbind },
+          T.unbind + (session.name ? `（${session.name}）` : ''),
+        ),
+      )
+    }
+
     function SettingsPanel() {
       ensureStyle()
       const data = useOverview()
@@ -1524,50 +1776,79 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
       return h(
         'div',
         { className: 'dmb-settings' },
-        h('div', { className: 'dmb-muted' }, T.address),
-        h('div', { className: 'dmb-addr' }, data?.publicBase ?? '—'),
-        data?.tunnel?.enabled === true
-          ? h(
-              'div',
-              null,
-              h(
-                'div',
-                { className: 'dmb-muted' },
-                `${T.tunnel} · ${
-                  data.tunnel.running === true ? data.tunnel.url || T.tunnelStarting : T.tunnelDown
-                }`,
-              ),
-              data?.tunnel?.mode === 'token' || !/trycloudflare\.com/i.test(String(data?.publicBase ?? ''))
-                ? h('div', { className: 'dmb-muted' }, T.addressFixed)
-                : h('div', { className: 'dmb-muted' }, T.addressTemporary),
-            )
-          : null,
         h(
           'div',
-          { className: 'dmb-grid' },
-          h(Cell, { label: T.paired, value: data === undefined ? '—' : `${data.devices.total}/${data.maxDevices}` }),
-          h(Cell, { label: T.online, value: data === undefined ? '—' : String(data.devices.online) }),
-          h(Cell, { label: T.pending, value: data === undefined ? '—' : String(data.pendingApprovals) }),
-          h(Cell, { label: T.rules, value: data === undefined ? '—' : String(data.alwaysRules) }),
-          h(Cell, { label: T.approvalTimeout, value: timeoutText }),
-          h(Cell, { label: T.clientLoaded, value: data === undefined ? '—' : String(data.clientHalf) }),
+          { className: 'dmb-group' },
+          h('div', { className: 'dmb-group-title' }, T.groupBasic),
+          h(
+            'div',
+            { className: 'dmb-group-body' },
+            h('div', { className: 'dmb-muted' }, T.address),
+            h('div', { className: 'dmb-addr' }, data?.publicBase ?? '—'),
+            data?.tunnel?.enabled === true
+              ? h(
+                  'div',
+                  null,
+                  h(
+                    'div',
+                    { className: 'dmb-muted' },
+                    `${T.tunnel} · ${
+                      data.tunnel.running === true ? data.tunnel.url || T.tunnelStarting : T.tunnelDown
+                    }`,
+                  ),
+                  data?.tunnel?.mode === 'token' || !/trycloudflare\.com/i.test(String(data?.publicBase ?? ''))
+                    ? h('div', { className: 'dmb-muted' }, T.addressFixed)
+                    : h('div', { className: 'dmb-muted' }, T.addressTemporary),
+                )
+              : null,
+            h(
+              'div',
+              { className: 'dmb-grid' },
+              h(Cell, { label: T.paired, value: data === undefined ? '—' : `${data.devices.total}/${data.maxDevices}` }),
+              h(Cell, { label: T.online, value: data === undefined ? '—' : String(data.devices.online) }),
+              h(Cell, { label: T.pending, value: data === undefined ? '—' : String(data.pendingApprovals) }),
+              h(Cell, { label: T.rules, value: data === undefined ? '—' : String(data.alwaysRules) }),
+              h(Cell, { label: T.approvalTimeout, value: timeoutText }),
+              h(Cell, { label: T.clientLoaded, value: data === undefined ? '—' : String(data.clientHalf) }),
+            ),
+          ),
         ),
         desktop
           ? h(
               'div',
               null,
-              h(BindingCard, null),
-              h(DeviceManager, null),
-              h(SakuraCard, null),
-              h(TailscaleCard, null),
-              h(CloudflareCard, null),
-              h(ChannelCard, null),
+              h(
+                'div',
+                { className: 'dmb-group' },
+                h('div', { className: 'dmb-group-title' }, T.groupFeature),
+                h(
+                  'div',
+                  { className: 'dmb-group-body' },
+                  h(BindingCard, null),
+                  h(DeviceManager, null),
+                  h(RulesCard, null),
+                  h(SakuraCard, null),
+                ),
+              ),
+              h(
+                'div',
+                { className: 'dmb-group' },
+                h('div', { className: 'dmb-group-title' }, T.groupNetwork),
+                h(
+                  'div',
+                  { className: 'dmb-group-body' },
+                  h(TailscaleCard, null),
+                  h(CloudflareCard, null),
+                  h(ChannelCard, null),
+                ),
+              ),
             )
           : h(
               'div',
               null,
               h('div', { className: 'dmb-muted' }, T.desktopOnly),
               h('div', { className: 'dmb-muted' }, T.deviceDesktopOnly),
+              h(UnbindSelf, null),
             ),
       )
     }
