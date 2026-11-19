@@ -225,6 +225,11 @@ window.__ModuleLoader__.load({
         ? '确认解绑本机？解绑后此手机立即断开，需重新用绑定密码绑定才能接入。'
         : 'Unbind this device? It disconnects immediately and must re-bind with the binding password.',
       unbound: ZH ? '本机已解绑。' : 'This device is unbound.',
+      // 手机创建工作区：由桌面进程打开系统目录对话框
+      dirPickFailed: ZH ? '打开电脑目录失败' : 'Failed to open the directory on your computer',
+      dirPickBusy: ZH ? '电脑上已有一个目录选择窗口' : 'A directory picker is already open on your computer',
+      dirPickUnavailable: ZH ? '桌面目录选择不可用' : 'Desktop directory picker unavailable',
+      dirPickTimeout: ZH ? '目录选择超时，请重试' : 'Directory picker timed out — try again',
     }
 
     const CSS = `
@@ -454,6 +459,123 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
       tag.dataset.dshMobileBridge = STYLE_ID
       tag.textContent = CSS
       document.head.appendChild(tag)
+    }
+
+    /**
+     * 手机端打开桌面目录选择器。
+     *
+     * 不走 DSH 的 RemoteAccess `directoryPicker/pick`：手机经本插件 edge 访问时
+     * 未必是 owner，也未必拿到那一条授权，原生目录流根本不会注册。这里改走
+     * 插件自己的同源路由，由 Host 端直接调桌面 picker 能力。
+     */
+    async function pickDirectoryFromHost() {
+      const response = await fetch(BASE + '/directory/pick', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: '{}',
+      })
+      let payload = {}
+      try {
+        payload = await response.json()
+      } catch {
+        /* 非 JSON 响应统一按 HTTP 状态码处理 */
+      }
+      if (!response.ok || payload.ok !== true) {
+        const code = String(payload.error ?? '')
+        const detail = typeof payload.message === 'string' ? payload.message : `HTTP ${response.status}`
+        const text = code.includes('busy')
+          ? T.dirPickBusy
+          : code.includes('unavailable')
+            ? T.dirPickUnavailable
+            : detail.includes('timeout')
+              ? T.dirPickTimeout
+              : `${T.dirPickFailed}：${detail}`
+        throw new Error(text)
+      }
+      return payload.cancelled === true ? null : (typeof payload.path === 'string' ? payload.path : null)
+    }
+
+    /**
+     * 目录流槽位的 occupant：renderless，跟官方 NativeDirectoryFlow 同构。
+     * 每次 open 上升沿只发一次 pick；所选路径回给 owner 后立即创建工作区。
+     */
+    function MobileDirectoryFlow(props) {
+      const armed = react.useRef(false)
+      const outcome = react.useRef(props)
+      outcome.current = props
+      const alive = react.useRef(true)
+      react.useEffect(() => {
+        alive.current = true
+        return () => { alive.current = false }
+      }, [])
+      react.useEffect(() => {
+        if (!props.open) {
+          armed.current = false
+          return
+        }
+        if (armed.current) return
+        armed.current = true
+        pickDirectoryFromHost().then(
+          (path) => {
+            if (!alive.current) return
+            if (path === null) outcome.current.onCancel()
+            else outcome.current.onPicked(path)
+          },
+          (error) => {
+            if (!alive.current) return
+            outcome.current.onError(error instanceof Error ? error.message : String(error))
+          },
+        )
+      }, [props.open])
+      return null
+    }
+
+    /** 窄屏才接管目录流：桌面仍走 DSH 原生 chooser，避免同一槽位无谓竞争。 */
+    function installDirectoryFlow(slots) {
+      if (typeof slots?.inject !== 'function' || typeof slots?.register !== 'function') return
+      const narrow = typeof window !== 'undefined'
+        && (window.matchMedia?.('(max-width: 900px)').matches === true
+          || document.documentElement.hasAttribute('data-dmb-narrow'))
+      if (!narrow) return
+      const slotsToFill = [
+        'conversation.hero.workspace.directoryFlow',
+        'sidebar.workspaces.directoryFlow',
+        'workspace.picker.directoryFlow',
+      ]
+      for (const name of slotsToFill) {
+        slots.inject(name, () => slots.register(
+          { name, id: 'dsh-mobile-bridge-directory-flow', inject: () => ({ pick: pickDirectoryFromHost }) },
+          MobileDirectoryFlow,
+        ))
+      }
+    }
+
+    /**
+     * 浏览器标签页标题里「— DeepSeek Harness」在手机上被截成「— Deep…」。
+     * CSS 改不了 document.title，这里在宿主每次写标题后把产品名换成固定图标。
+     */
+    function installTitleFix() {
+      if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return
+      let writing = false
+      const rewrite = () => {
+        if (writing || !document.title) return
+        const cleaned = document.title.replace(/\s+—\s+Deep[\s\S]*$/i, '')
+        const next = cleaned + ' — ⬤'
+        if (next === document.title) return
+        writing = true
+        try {
+          document.title = next
+        } finally {
+          queueMicrotask(() => { writing = false })
+        }
+      }
+      new MutationObserver(rewrite).observe(document.head ?? document.documentElement, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      })
+      rewrite()
     }
 
     function postDecision(requestId, decision) {
@@ -2613,6 +2735,7 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
       installComposerEnterKeyHint()
       installSettingsNav()
       installIconButtonFix()
+      installTitleFix()
       // 先回执再注册：这样即使 slot 注册失败，宿主也能观测到「半身确实执行到了哪一步」。
       const slots = ctx?.slots ?? (typeof ctx?.get === 'function' ? ctx.get('slots') : undefined)
       if (slots === undefined || slots === null) {
@@ -2631,6 +2754,7 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
           failed.push(`${slotName}:${String(error?.message ?? error).slice(0, 60)}`)
         }
       }
+      installDirectoryFlow(slots)
       sendHello(failed.length === 0 ? 'registered' : `partial:${failed.join(';')}`)
     }
 

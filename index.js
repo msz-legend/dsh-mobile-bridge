@@ -368,6 +368,18 @@ export function apply(ctx, raw) {
           port: config.edgePort,
           bindings: edge?.bindings?.() ?? [],
         }),
+        // 手机创建工作区要弹桌面目录对话框。这里延迟读取宿主服务，
+        // 避免插件比 picker 后端先激活时拿到 undefined。
+        pickDirectory: async (signal) => {
+          const picker = ctx.directoryPicker
+          const capability = typeof picker?.capability === 'function' ? picker.capability() : undefined
+          if (capability?.kind !== 'native' || typeof capability.pick !== 'function') {
+            const error = new Error('directory picker does not expose a native chooser')
+            error.code = 'directory-picker/unavailable'
+            throw error
+          }
+          return capability.pick(signal)
+        },
         notify,
       })
 
