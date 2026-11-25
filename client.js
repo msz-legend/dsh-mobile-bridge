@@ -191,6 +191,7 @@ window.__ModuleLoader__.load({
       sfKeySaved: ZH ? '访问密钥已保存（仅本地）' : 'Access key saved (local only)',
       sfClearAsk: ZH ? '确认停用 SakuraFrp 并回到临时隧道？' : 'Disable SakuraFrp and return to the quick tunnel?',
       back: ZH ? '返回设置列表' : 'Back to settings list',
+      qcardBack: ZH ? '返回对话' : 'Back to chat',
       linkLost: ZH
         ? '连接已中断：隧道地址可能已更换。请刷新页面；仍失败就回电脑上查看「设置 → 手机分身」的新地址，绑定密码不变。'
         : 'Connection lost: the tunnel address may have changed. Refresh; if it persists, check the new address under Settings → Phone Mirror. The binding password is unchanged.',
@@ -382,6 +383,29 @@ button[data-dmb-icon]{min-height:0 !important;aspect-ratio:1 / 1 !important;
    图标按钮内的 svg 一律取消 margin 并由 flex 居中。 */
 button[data-dmb-icon] > svg{margin:0 !important;position:static !important}
 button[data-dmb-icon][data-dmb-tiny]{min-width:24px !important;min-height:24px !important}
+/* DMB-020：窄屏模型选择器只保留通用模型图标。宿主会把当前模型短名放进
+   triggerLabel；手机端隐藏名称和推理等级，避免暴露节段名称并挤压右侧控件。 */
+@media (max-width:900px){
+  button[aria-label*="选择模型"],button[aria-label*="Select model"]{
+    width:28px !important;min-width:28px !important;max-width:28px !important;
+    min-height:28px !important;height:28px !important;padding:0 !important;
+    display:inline-flex !important;align-items:center !important;justify-content:center !important;
+    aspect-ratio:1 / 1 !important;overflow:hidden !important}
+  button[aria-label*="选择模型"] [class*="_triggerLabel"],
+  button[aria-label*="选择模型"] [class*="_triggerEffort"],
+  button[aria-label*="Select model"] [class*="_triggerLabel"],
+  button[aria-label*="Select model"] [class*="_triggerEffort"]{display:none !important}
+  button[aria-label*="选择模型"] > [class*="_triggerIcon"],
+  button[aria-label*="Select model"] > [class*="_triggerIcon"]{
+    display:flex !important;position:static !important;margin:0 !important;
+    width:16px !important;height:16px !important;flex:0 0 16px !important}
+  button[aria-label*="选择模型"] > svg,
+  button[aria-label*="Select model"] > svg{
+    display:block !important;position:static !important;margin:0 !important;
+    width:16px !important;height:16px !important;flex:0 0 16px !important}
+  button[aria-label*="选择模型"] [class*="_chevron"],
+  button[aria-label*="Select model"] [class*="_chevron"]{display:none !important}
+}
 /* 隧道断开提示条 */
 .dmb-banner{position:fixed;left:8px;right:8px;top:calc(8px + env(safe-area-inset-top));z-index:2147482500;
   display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;
@@ -415,29 +439,117 @@ html[data-dmb-narrow="1"][data-dmb-sidebar-open="1"] [class*="_sidebarCol"]{
    本层只负责接住「点灰色区域」的点击 → 收起侧栏（并阻止穿透到被遮住的内容）。 */
 .dmb-scrim{position:fixed;top:0;right:0;bottom:0;left:0;z-index:1049;background:transparent;display:none;
   -webkit-tap-highlight-color:transparent;touch-action:manipulation}
-/* 宿主「提问卡片」（dsh-client-ui-user-questions，类前缀 wnLwla_）：窄屏下会被挤在
-   会话列里、标题/选项不换行导致变形。这里在窄屏把它铺满视口并强制换行，
-   底部按钮完整可点。选择器只命中该组件类，不影响其它 UI。 */
-html[data-dmb-narrow="1"] .wnLwla_frame{
-  box-sizing:border-box!important;width:100vw!important;max-width:100vw!important;
-  margin-left:calc(50% - 50vw)!important;margin-right:calc(50% - 50vw)!important;
-  padding-left:10px!important;padding-right:10px!important}
-html[data-dmb-narrow="1"] .wnLwla_card{width:100%!important;max-width:100%!important;max-height:100dvh!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch!important;overscroll-behavior:contain!important}
-html[data-dmb-narrow="1"] .wnLwla_header{padding:16px 12px 0 16px!important;gap:8px!important}
-html[data-dmb-narrow="1"] .wnLwla_headingBlock{flex:1 1 auto!important;min-width:0!important}
-html[data-dmb-narrow="1"] .wnLwla_title{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere!important}
-html[data-dmb-narrow="1"] .wnLwla_detail{overflow-wrap:anywhere!important}
-html[data-dmb-narrow="1"] .wnLwla_options{padding-left:8px!important;padding-right:8px!important}
-html[data-dmb-narrow="1"] .wnLwla_option{padding:8px 10px!important}
-html[data-dmb-narrow="1"] .wnLwla_optionLine,
-html[data-dmb-narrow="1"] .wnLwla_optionLabel,
-html[data-dmb-narrow="1"] .wnLwla_optionCopy{display:block!important;white-space:normal!important;overflow:visible!important;
-  overflow-wrap:anywhere!important;word-break:break-word!important;-webkit-line-clamp:unset!important}
-html[data-dmb-narrow="1"] .wnLwla_footer,
-html[data-dmb-narrow="1"] .wnLwla_footerActions{flex-wrap:wrap!important;gap:8px!important}
-html[data-dmb-narrow="1"] .wnLwla_progress,
-html[data-dmb-narrow="1"] .wnLwla_waitStatus,
-html[data-dmb-narrow="1"] .wnLwla_waitButton{white-space:normal!important}
+/* 宿主「提问卡片」（dsh-client-ui-user-questions）：窄屏下会被挤在会话列里，
+   标题/选项还被宿主的 scroll-timeline 裁剪动画用负 margin 压住，出现文字重叠。
+   这里把它改成真正的全屏页：frame 固定铺满视口，header/footer 不滚，中间
+   [data-question-scroll] 单独上下滚动；标题和选项描述取消裁剪动画、完整换行。
+   结构钩子用 frame 上的 data-question-key 及其直接子元素，不依赖 CSS-module
+   hash 前缀；PlanReviewPanel 用的是 data-plan-review-key，不会被误伤。 */
+html[data-dmb-narrow="1"] [data-question-key]{
+  position:fixed!important;inset:0!important;z-index:2147482300!important;
+  box-sizing:border-box!important;display:flex!important;align-items:stretch!important;
+  justify-content:center!important;width:100vw!important;max-width:100vw!important;
+  height:100dvh!important;max-height:100dvh!important;margin:0!important;padding:0!important;
+  background:var(--dsw-specific-input-major,var(--dsw-alias-bg-module-platform,#fff))!important;
+  overflow:hidden!important}
+/* 点宿主自带的收起钮时不能只剩一张空白全屏页：收起态改成底部小条。 */
+html[data-dmb-narrow="1"] [data-question-key][data-dmb-question-minimized="1"]{
+  inset:auto 8px calc(env(safe-area-inset-bottom) + 8px) 8px!important;
+  width:auto!important;max-width:none!important;height:auto!important;
+  max-height:min(40dvh,320px)!important;border-radius:16px!important;
+  background:transparent!important;overflow:visible!important}
+html[data-dmb-narrow="1"] [data-question-key][data-dmb-question-minimized="1"] > section{
+  height:auto!important;max-height:min(40dvh,320px)!important;border-radius:16px!important;
+  border:1px solid rgba(127,127,127,.16)!important;
+  box-shadow:0 12px 32px rgba(0,0,0,.22)!important;
+  background:var(--dsw-specific-input-major,var(--dsw-alias-bg-module-platform,#fff))!important;
+  overflow:hidden!important}
+html[data-dmb-narrow="1"] [data-question-key][data-dmb-question-minimized="1"] > section > header{
+  min-height:0!important;padding:10px 12px 10px 8px!important;border-bottom:0!important}
+html[data-dmb-narrow="1"] [data-question-key] > section{
+  box-sizing:border-box!important;display:flex!important;flex-direction:column!important;
+  width:100%!important;max-width:100%!important;height:100%!important;max-height:none!important;
+  margin:0!important;padding:0!important;border:0!important;border-radius:0!important;
+  box-shadow:none!important;background:transparent!important;overflow:hidden!important}
+html[data-dmb-narrow="1"] [data-question-key] > section > header{
+  flex:0 0 auto!important;box-sizing:border-box!important;display:flex!important;
+  align-items:flex-start!important;justify-content:space-between!important;gap:8px!important;
+  min-height:56px!important;padding:calc(env(safe-area-inset-top) + 12px) 12px 10px 8px!important;
+  border-bottom:1px solid rgba(127,127,127,.16)!important;
+  background:var(--dsw-specific-input-major,var(--dsw-alias-bg-module-platform,#fff))!important}
+html[data-dmb-narrow="1"] [data-question-key] > section > header > div:last-child{
+  flex:0 1 auto!important;min-width:0!important;display:flex!important;align-items:center!important;
+  justify-content:flex-end!important;flex-wrap:wrap!important;gap:4px 2px!important;margin-left:auto!important}
+html[data-dmb-narrow="1"] [data-question-key] > section > [data-question-scroll]{
+  flex:1 1 auto!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;
+  -webkit-overflow-scrolling:touch!important;overscroll-behavior:contain!important;
+  padding-bottom:12px!important}
+html[data-dmb-narrow="1"] [data-question-key] > section > footer{
+  flex:0 0 auto!important;box-sizing:border-box!important;display:flex!important;
+  align-items:center!important;justify-content:space-between!important;flex-wrap:wrap!important;
+  gap:8px!important;margin:0!important;
+  padding:8px 12px calc(env(safe-area-inset-bottom) + 12px)!important;
+  border-top:1px solid rgba(127,127,127,.16)!important;
+  background:var(--dsw-specific-input-major,var(--dsw-alias-bg-module-platform,#fff))!important}
+html[data-dmb-narrow="1"] [data-question-key] > section > footer button{flex:0 0 auto!important}
+/* 全屏后右侧的收起/关闭仍可用；返回按钮复用宿主的关闭动作，放在 header 最左侧。 */
+.dmb-question-back{flex:0 0 auto!important;display:inline-flex!important;align-items:center!important;
+  justify-content:center!important;width:40px!important;height:40px!important;min-width:40px!important;
+  min-height:40px!important;margin:0 2px 0 0!important;padding:0 0 4px!important;border:0!important;
+  border-radius:50%!important;background:transparent!important;color:var(--dsw-alias-label-primary,#111)!important;
+  font:400 30px/1 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif!important;
+  cursor:pointer!important;-webkit-tap-highlight-color:transparent!important}
+.dmb-question-back:active{background:rgba(127,127,127,.14)!important}
+html[data-dmb-narrow="1"] [data-question-key] [class*="_eyebrow"]{
+  margin:0 0 4px!important;font-size:12px!important;line-height:1.4!important;
+  white-space:normal!important;overflow-wrap:anywhere!important}
+html[data-dmb-narrow="1"] [data-question-key] [class*="_headingBlock"]{
+  flex:1 1 auto!important;min-width:0!important}
+html[data-dmb-narrow="1"] [data-question-key] [class*="_questionTitle"]{
+  margin:8px 16px 0!important;padding:0!important}
+html[data-dmb-narrow="1"] [data-question-key] [class*="_questionTitle"][data-expanded]{
+  padding-bottom:0!important}
+html[data-dmb-narrow="1"] [data-question-key] h2{
+  margin:0!important;font-size:16px!important;line-height:1.5!important;font-weight:600!important;
+  white-space:normal!important;overflow:visible!important;text-overflow:clip!important;
+  overflow-wrap:anywhere!important;word-break:break-word!important}
+html[data-dmb-narrow="1"] [data-question-key] [class*="_detail"]{
+  margin:0 16px 8px!important;overflow-wrap:anywhere!important}
+html[data-dmb-narrow="1"] [data-question-key] [class*="_options"]{
+  padding:4px 8px!important}
+html[data-dmb-narrow="1"] [data-question-key] [data-option-row]{
+  min-height:0!important}
+html[data-dmb-narrow="1"] [data-question-key] [data-option-row] > button{
+  box-sizing:border-box!important;width:100%!important;min-height:44px!important;
+  align-items:flex-start!important;gap:10px!important;padding:10px 8px!important;text-align:left!important}
+html[data-dmb-narrow="1"] [data-question-key] [data-option-line]{
+  display:flex!important;align-items:baseline!important;flex-wrap:wrap!important;
+  gap:2px 6px!important;min-width:0!important;max-width:100%!important}
+html[data-dmb-narrow="1"] [data-question-key] [data-option-line] > span{
+  white-space:normal!important;overflow-wrap:anywhere!important;word-break:break-word!important}
+html[data-dmb-narrow="1"] [data-question-key] [data-option-row] > button > span:nth-child(2){
+  flex:1 1 auto!important;min-width:0!important;display:block!important}
+/* 宿主用负 margin + clip-path/mask 制造“收起一行”的假象；全屏页直接显示全文，
+   否则这些动画会在窄屏把标题和选项描述压到下一行上。 */
+html[data-dmb-narrow="1"] [data-question-key] [class*="_titlePreview"],
+html[data-dmb-narrow="1"] [data-question-key] [data-option-description]{
+  max-height:none!important;width:auto!important;max-width:100%!important;
+  margin:0!important;padding:0!important;overflow:visible!important;
+  animation:none!important;scroll-timeline:none!important;clip-path:none!important;
+  -webkit-mask-image:none!important;mask-image:none!important;
+  white-space:pre-wrap!important;overflow-wrap:anywhere!important;word-break:break-word!important}
+html[data-dmb-narrow="1"] [data-question-key] [data-option-description]{
+  display:block!important;margin-top:2px!important;line-height:1.45!important}
+html[data-dmb-narrow="1"] [data-question-key] [data-option-row][data-expanded] > button{
+  padding-bottom:10px!important}
+html[data-dmb-narrow="1"] [data-question-key] [class*="_copyToggle"]{
+  display:none!important}
+html[data-dmb-narrow="1"] [data-question-key] [class*="_progress"],
+html[data-dmb-narrow="1"] [data-question-key] [class*="_waitStatus"],
+html[data-dmb-narrow="1"] [data-question-key] [class*="_waitButton"]{
+  white-space:normal!important;max-width:100%!important}
+html[data-dmb-narrow="1"] [data-question-key] [class*="_footerActions"]{
+  flex-wrap:wrap!important;gap:8px!important}
 /* 窄屏收起态 rail 空白处的「› 展开」提示：放在左下角头像正上方，点击该空白区域即展开侧栏。 */
 .dmb-rail-hint{position:fixed;z-index:1040;left:8px;bottom:calc(74px + env(safe-area-inset-bottom,0px));width:40px;display:none;
   flex-direction:column;align-items:center;gap:2px;color:#5d646e;
@@ -2145,6 +2257,109 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
     }
 
     /**
+     * 窄屏提问卡片全屏化。
+     *
+     * 宿主把 ask_user_question 卡片塞在 composer 座位里，窄屏上只有半屏高，
+     * 标题/选项还被 scroll-timeline 裁剪动画压行。CSS 侧已把 [data-question-key]
+     * 改成全屏页；这里补一个「‹ 返回」按钮，并监听 React 重渲染把按钮补回来。
+     * 返回复用宿主 header 里最后一个关闭/取消按钮，不改变原有提交/取消语义。
+     */
+    function installQuestionFullscreen() {
+      if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return
+      if (typeof document.body === 'undefined') return
+      const isNarrow = () => {
+        const screenWidth = typeof window.screen === 'object' ? Number(window.screen.width) || 0 : 0
+        return screenWidth > 0 && screenWidth <= 600 ? true : window.innerWidth <= 520
+      }
+      let frame = 0
+      const childByTag = (parent, tag) => {
+        if (parent === null || parent === undefined) return undefined
+        return [...parent.children].find((child) => child.tagName === tag)
+      }
+      const questionCard = () => {
+        const root = document.querySelector('[data-question-key]')
+        if (root === null) return undefined
+        return childByTag(root, 'SECTION')
+      }
+      const closeButtonOf = (card) => {
+        const header = childByTag(card, 'HEADER')
+        if (header === undefined) return undefined
+        const actions = [...header.children].reverse().find((child) =>
+          child.tagName === 'DIV' && child.querySelector('button') !== null)
+        if (actions === undefined) return undefined
+        const buttons = [...actions.querySelectorAll('button')].reverse()
+        const labelled = buttons.find((button) => {
+          const label = button.getAttribute('aria-label') ?? ''
+          return /关闭|取消|close|cancel/i.test(label)
+        })
+        return labelled ?? buttons[0]
+      }
+      function cleanup() {
+        document.documentElement.removeAttribute('data-dmb-question')
+        document.querySelectorAll('[data-question-key]').forEach((node) => {
+          node.removeAttribute('data-dmb-question-minimized')
+        })
+        document.querySelectorAll('.dmb-question-back').forEach((button) => button.remove())
+      }
+      function sync() {
+        if (!isNarrow()) {
+          cleanup()
+          return
+        }
+        const root = document.querySelector('[data-question-key]')
+        const card = questionCard()
+        if (root === null || card === undefined) {
+          cleanup()
+          return
+        }
+        const header = childByTag(card, 'HEADER')
+        if (header === undefined) return
+        document.documentElement.setAttribute('data-dmb-question', '1')
+        root.setAttribute(
+          'data-dmb-question-minimized',
+          typeof card.className === 'string' && card.className.indexOf('cardMinimized') !== -1 ? '1' : '0',
+        )
+        if (header.querySelector('.dmb-question-back') !== null) return
+        const back = document.createElement('button')
+        back.type = 'button'
+        back.className = 'dmb-question-back'
+        back.setAttribute('aria-label', T.qcardBack)
+        back.title = T.qcardBack
+        back.textContent = '\u2039'
+        back.addEventListener(
+          'click',
+          (event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            const current = questionCard()
+            const close = current === undefined ? undefined : closeButtonOf(current)
+            if (close !== undefined) close.click()
+          },
+          true,
+        )
+        header.insertBefore(back, header.firstChild)
+      }
+      function schedule() {
+        if (frame !== 0) return
+        frame = window.requestAnimationFrame(() => {
+          frame = 0
+          sync()
+        })
+      }
+      window.addEventListener('resize', schedule, { passive: true })
+      window.addEventListener('orientationchange', schedule, { passive: true })
+      // childList 覆盖卡片出现/React 重渲染；class 覆盖宿主自带的收起/展开；
+      // data-dmb-narrow 覆盖横竖屏切换。
+      new MutationObserver(schedule).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['data-dmb-narrow', 'class'],
+      })
+      sync()
+    }
+
+    /**
      * 图标按钮保圆。
      *
      * 注入的 `button{min-height:40px}` 本意是保证触控高度，但它会命中宿主的
@@ -2734,6 +2949,7 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
       installTransportResilience()
       installComposerEnterKeyHint()
       installSettingsNav()
+      installQuestionFullscreen()
       installIconButtonFix()
       installTitleFix()
       // 先回执再注册：这样即使 slot 注册失败，宿主也能观测到「半身确实执行到了哪一步」。

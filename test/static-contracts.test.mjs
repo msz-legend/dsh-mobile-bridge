@@ -113,4 +113,18 @@ const client = read('../client.js')
   pass('C8 task-end external notify wired to session/event turn/end')
 }
 
+// 附加：窄屏提问卡片改为全屏页 + 中间滚动 + 返回按钮（复用宿主关闭动作）。
+{
+  const client = read('../client.js')
+  assert.match(client, /function installQuestionFullscreen/)
+  assert.match(client, /qcardBack:/)
+  assert.match(client, /\[data-question-key\] > section > \[data-question-scroll\]/)
+  assert.match(client, /\.dmb-question-back\{/)
+  assert.match(client, /data-dmb-question/)
+  assert.match(client, /data-dmb-question-minimized/)
+  assert.match(client, /cardMinimized/)
+  assert.match(client, /installQuestionFullscreen\(\)/)
+  pass('C9 narrow question card full-screen, scrollable body, back button')
+}
+
 console.log(`\n${passed} checks passed`)
