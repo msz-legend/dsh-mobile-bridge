@@ -127,4 +127,14 @@ const client = read('../client.js')
   pass('C9 narrow question card full-screen, scrollable body, back button')
 }
 
+// 附加：有可见文字的按钮不能被当成纯图标压成正方形（设置行选择器文字竖排回归）。
+{
+  const client = read('../client.js')
+  assert.match(client, /const hasVisibleText = \(button\) =>/)
+  assert.match(client, /button\.innerText/)
+  assert.match(client, /rect\.width > 48 \|\| isSplitSegment\(button\) \|\| hasVisibleText\(button\)/)
+  assert.match(client, /isSplitSegment\(button\) \|\| hasVisibleText\(button\)\) continue/)
+  pass('C10 visible-text buttons excluded from square icon marking')
+}
+
 console.log(`\n${passed} checks passed`)

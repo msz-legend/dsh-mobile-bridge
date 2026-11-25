@@ -2364,8 +2364,9 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
      *
      * 注入的 `button{min-height:40px}` 本意是保证触控高度，但它会命中宿主的
      * 图标按钮（原生 36x36 / 28x28），把高度撑到 40 → 变成椭圆或被拉长。
-     * 这里运行期给「小尺寸 + 含 svg」的按钮打标记，CSS 只对它们取消 min-height
-     * 并强制 aspect-ratio:1，宽按钮（带文字）仍保留 40px 触控高度。
+     * 这里运行期给「小尺寸 + 含 svg + 无可见文字」的按钮打标记，CSS 只对它们
+     * 取消 min-height 并强制 aspect-ratio:1；带文字的设置行选择器即使带下拉 svg
+     * 也保留正常宽度，避免已选文字被压成竖排。
      */
     function installIconButtonFix() {
       if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return
@@ -2386,13 +2387,20 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
         const hasRound = corners.some((token) => parseFloat(token) > 0)
         return hasSquare && hasRound
       }
+      // 设置行右侧选择器带下拉 svg，布局稳定前宿主 40px 按钮基线会让它显得很窄；
+      // 若把它当纯图标压成正方形，已选文字会逐字竖排。innerText 只看实际渲染文本，
+      // 不会把 svg <title> 或隐藏的无障碍文案误判成可见文字。
+      const hasVisibleText = (button) => {
+        if (typeof button.innerText === 'string') return button.innerText.trim() !== ''
+        return (button.textContent || '').trim() !== ''
+      }
       const mark = () => {
         // 双向再评估：已打标的按钮宽度变化（如收起 rail 36px 的按钮被展开的
         // 侧栏撑到 252px）后必须撤销标记，否则 aspect-ratio:1 把文字按钮
         // 撑成正方形巨块、把会话列表挤出视口。
         for (const button of document.querySelectorAll('button[data-dmb-icon]')) {
           const rect = button.getBoundingClientRect()
-          if (rect.width > 48 || isSplitSegment(button)) {
+          if (rect.width > 48 || isSplitSegment(button) || hasVisibleText(button)) {
             button.removeAttribute('data-dmb-icon')
             button.removeAttribute('data-dmb-tiny')
           } else if (rect.width >= 24 && button.hasAttribute('data-dmb-tiny')) {
@@ -2406,7 +2414,7 @@ html[data-dmb-narrow="1"][data-dmb-ime="1"] [class*="_sidebarCol"] [class*="avat
           // 图标按钮：小尺寸 + 含 svg；超窄按钮（如 toast 关闭）即使没 svg 也要保方。
           const iconLike = button.querySelector('svg') !== null && rect.width <= 48
           const tiny = rect.width > 0 && rect.width < 24
-          if ((!iconLike && !tiny) || isSplitSegment(button)) continue
+          if ((!iconLike && !tiny) || isSplitSegment(button) || hasVisibleText(button)) continue
           button.setAttribute('data-dmb-icon', '')
           if (tiny) button.setAttribute('data-dmb-tiny', '')
         }
