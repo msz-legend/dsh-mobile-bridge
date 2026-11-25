@@ -20,3 +20,30 @@ e2e/shots/
 /e2e/fix3-pair-render.mjs
 /e2e/fix3-verify.mjs
 /test/auto-approve.test.mjs
+
+# 本地调试 / 宿主解包 / 推广产物（不参与插件运行，不入库）
+.tmp-*
+_asar_probe/
+_asar_extract*/
+_asar_src/
+_pua_fix_test/
+settings-initial.png
+fix-pua-settings-inject.ps1
+HANDOFF-*.md
+MEDIA-COPY-*.md
+PUA_SETTINGS_INJECT_FIX.md
+docs/screenshots/cover-3x4.png
+docs/screenshots/mobile-chat.png
+docs/screenshots/promo-v06/
+
+# 本地 e2e 探针与实验性测试（正式回归用例保持入库）
+/e2e/*.mjs
+!/e2e/reg4-batch1-access.mjs
+!/e2e/reg4-batch2-sessions.mjs
+!/e2e/reg4-batch3-approval-settings.mjs
+!/e2e/reg4-batch4-ux-stability.mjs
+/test/always-fingerprint.test.mjs
+/test/edge-relogin.test.mjs
+/test/integration-edge.mjs
+/test/merge-cookie.test.mjs
+/test/soak.test.mjs

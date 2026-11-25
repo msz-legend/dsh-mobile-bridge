@@ -37,14 +37,17 @@ DSH Desktop's web UI only listens on `127.0.0.1`, so phones can't reach it. This
 ## Highlights
 
 - **Bind by password, long-lived sessions** — the desktop **Settings → Phone Mirror** panel shows a binding password you can view, copy, regenerate or customize (6–64 chars). Open the address on your phone (the QR encodes only the address, **never the password**), type the password, and you are bound immediately with **no desktop confirmation popup** and **no scan-to-auto-bind**. The password is stored in a local `binding.json` (`0600`); afterwards your phone holds an HttpOnly device token and just works.
-- **Full desktop UI on mobile** — sessions, streaming output, stop, model & reasoning level, plugins, file preview, terminal: all identical to desktop. Narrow-screen tweaks: overlay sidebar, auto-collapse, no auto keyboard, touch-always-visible controls, PWA "add to home screen".
+- **Full desktop UI on mobile** — sessions, streaming output, stop, model & reasoning level, plugins, file preview, terminal: all identical to desktop. Narrow-screen tweaks include an overlay sidebar, auto-collapse, no auto keyboard, touch-always-visible controls and PWA "add to home screen".
 - **Create workspaces from your phone** — tapping "Create / Add workspace" opens the desktop's native directory chooser on the computer; pick a folder there and the phone adopts it immediately. Only paired devices can trigger it, and only one chooser can be open at a time (requires the desktop native picker capability).
 - **Icon-only browser title** — the product-name suffix in `document.title` is replaced by a fixed `⬤` icon so narrow tabs no longer show a truncated "— Deep…".
+- **Full-screen question cards** — on narrow screens the host question panel becomes a full-screen, vertically scrollable page with a back button; long questions and option text wrap fully instead of overlapping.
+- **Icon-only model button** — the narrow-screen model selector shows a generic model icon instead of the current model name / reasoning level, so it no longer squeezes adjacent controls.
+- **Readable settings rows** — selectors such as "Full permissions" and "Chinese" keep their normal width; the chevron is no longer mistaken for a standalone icon that would squash the selected text into a vertical column.
 - **Tool approvals on your phone** — when the agent needs a tool approval, a card pops up on your phone: *once / always / reject*. "Always" is remembered per tool + argument fingerprint. Fail-closed: timeouts and offline phones count as "not executed".
 - **Five access lanes** — SakuraFrp free tunnel (recommended for mainland China), LAN direct, cloudflared quick tunnel (zero account), Tailscale (private, WireGuard-encrypted; ⚠️ **overseas users only** — login and relay are unstable on mainland China networks), Cloudflare named tunnel (your own fixed domain, two-click setup in the settings panel).
 - **Always-on fixed address** — register the named tunnel as a Windows service so it survives reboots; a tunnel health watchdog auto-restarts dead tunnels with exponential backoff.
 - **Device management** — list bound phones (online/offline), revoke one / all, purge history; each phone gets its own token (default max 5).
-- **Task-end notifications** — every `turn/end` is pushed to the same external channels (completed / error / aborted / blocked / max-tokens / interrupted / forked), no browser needed. On by default; disable with `taskNotifyEnabled: false`.
+- **Task-end and question notifications** — every `turn/end` is pushed to the same external channels (completed / error / aborted / blocked / max-tokens / interrupted / forked); completion messages include the final assistant reply (truncated to 500 chars), and `ask_user_question` prompts push a separate "Needs your choice" message with the question and every option. Subagent turns and questions are skipped to avoid noise. On by default; disable with `taskNotifyEnabled: false`.
 
 ## Quick start
 
