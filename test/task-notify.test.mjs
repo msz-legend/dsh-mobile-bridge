@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert/strict'
 
-import { createTaskNotifier, describeTurnEnd } from '../lib/task-notify.js'
+import { createTaskNotifier, describeTurnEnd, describeUserQuestion } from '../lib/task-notify.js'
 
 const log = () => undefined
 let passed = 0
@@ -27,6 +27,26 @@ const makeNotify = () => {
 
 const sessionOf = (id, origin) => ({ id, header: origin === undefined ? {} : { origin } })
 const turnEnd = (turn, reason) => ({ type: 'turn/end', seq: 1, time: 1, data: { turn, reason } })
+const assistantMessage = (turn, step, text, interrupted = false) => ({
+  type: 'assistant/message',
+  data: {
+    turn,
+    step,
+    message: { role: 'assistant', content: [{ type: 'text', text }] },
+    ...(interrupted ? { interrupted: true } : {}),
+  },
+})
+const askCall = (callId, questions, turn = 2) => ({
+  type: 'tool/call',
+  data: {
+    turn,
+    step: 1,
+    callId,
+    name: 'ask_user_question',
+    arguments: JSON.stringify({ questions }),
+  },
+})
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 const run = async (name, body) => {
   await body()
@@ -263,6 +283,162 @@ try {
     assert.equal(describeTurnEnd('abcdef123456', 7, { kind: 'completed' }, '').body, '会话 abcdef12 第 7 轮已完成')
     assert.equal(describeTurnEnd('abcdef123456', 7, { kind: 'completed' }, undefined).body, '会话 abcdef12 第 7 轮已完成')
     assert.equal(describeTurnEnd('abcdef123456', 7, { kind: 'completed' }, 42).body, '会话 abcdef12 第 7 轮已完成')
+  })
+
+  await run('T18 completed notification appends the final assistant result', async () => {
+    const notify = makeNotify()
+    const notifier = createTaskNotifier({ notify, log })
+    const session = sessionOf('sess-final', undefined)
+    notifier.handle(session, assistantMessage(2, 1, '中间步骤结果'))
+    notifier.handle(session, assistantMessage(2, 2, '最终答案是 42'))
+    notifier.handle(session, turnEnd(2, { kind: 'completed' }))
+    await tick()
+    assert.equal(notify.calls.length, 1)
+    assert.equal(notify.calls[0].title, '任务完成')
+    assert.match(notify.calls[0].body, /最终结果：最终答案是 42/)
+    assert.doesNotMatch(notify.calls[0].body, /中间步骤结果/)
+    notifier.dispose()
+  })
+
+  await run('T19 interrupted assistant message never becomes the final result', async () => {
+    const notify = makeNotify()
+    const notifier = createTaskNotifier({ notify, log })
+    const session = sessionOf('sess-interrupt', undefined)
+    notifier.handle(session, assistantMessage(1, 1, '完整回复'))
+    notifier.handle(session, assistantMessage(1, 2, '被截断的前缀', true))
+    notifier.handle(session, turnEnd(1, { kind: 'completed' }))
+    await tick()
+    assert.match(notify.calls[0].body, /最终结果：完整回复/)
+    assert.doesNotMatch(notify.calls[0].body, /被截断的前缀/)
+
+    const onlyInterrupted = makeNotify()
+    const notifier2 = createTaskNotifier({ notify: onlyInterrupted, log })
+    const session2 = sessionOf('sess-only-int', undefined)
+    notifier2.handle(session2, assistantMessage(1, 1, '仅有中断前缀', true))
+    notifier2.handle(session2, turnEnd(1, { kind: 'completed' }))
+    await tick()
+    assert.equal(onlyInterrupted.calls[0].body, '会话 sess-onl 第 1 轮已完成')
+    assert.doesNotMatch(onlyInterrupted.calls[0].body, /最终结果/)
+    notifier.dispose()
+    notifier2.dispose()
+  })
+
+  await run('T20 ask_user_question tool/call notifies the question and every option', async () => {
+    const notify = makeNotify()
+    const notifier = createTaskNotifier({ notify, log })
+    const questions = [
+      {
+        id: 'q1',
+        header: '确认',
+        question: '是否继续执行？',
+        options: [
+          { label: '是', description: '继续下一步' },
+          { label: '否' },
+        ],
+      },
+      {
+        id: 'q2',
+        question: '选择模式',
+        options: [{ label: '快速' }, { label: '稳妥' }],
+      },
+    ]
+    notifier.handle(sessionOf('sess-ask01', undefined), askCall('call-ask-1', questions, 4))
+    await tick()
+    assert.equal(notify.calls.length, 1)
+    assert.equal(notify.calls[0].title, '需要你的选择')
+    assert.equal(notify.calls[0].path, '/')
+    assert.match(notify.calls[0].body, /会话 sess-ask 第 4 轮等待你的回答/)
+    assert.match(notify.calls[0].body, /1\. \[确认\] 是否继续执行？/)
+    assert.match(notify.calls[0].body, /1\. 是 — 继续下一步/)
+    assert.match(notify.calls[0].body, /1\. 快速/)
+    assert.match(notify.calls[0].body, /2\. 选择模式/)
+    notifier.dispose()
+  })
+
+  await run('T21 ask notifications dedupe by callId and ignore other/malformed calls', async () => {
+    const notify = makeNotify()
+    const notifier = createTaskNotifier({ notify, log })
+    const session = sessionOf('sess-dedupe-ask', undefined)
+    const questions = [{ id: 'q1', question: '继续吗？', options: [{ label: '是' }] }]
+    notifier.handle(session, askCall('call-dup', questions))
+    notifier.handle(session, askCall('call-dup', questions))
+    notifier.handle(session, {
+      type: 'tool/call',
+      data: { callId: 'call-bash', name: 'bash', arguments: '{}' },
+    })
+    notifier.handle(session, {
+      type: 'tool/call',
+      data: { callId: 'call-bad', name: 'ask_user_question', arguments: '{not json' },
+    })
+    notifier.handle(sessionOf('sess-subask', 'subagent'), askCall('call-sub', questions))
+    await tick()
+    assert.equal(notify.calls.length, 1)
+    assert.match(notify.calls[0].body, /继续吗？/)
+    notifier.dispose()
+  })
+
+  await run('T22 long final results and question bodies are truncated', async () => {
+    const notify = makeNotify()
+    const notifier = createTaskNotifier({ notify, log })
+    const session = sessionOf('sess-longfinal', undefined)
+    notifier.handle(session, assistantMessage(1, 1, 'x'.repeat(900)))
+    notifier.handle(session, turnEnd(1, { kind: 'completed' }))
+    await tick()
+    assert.ok(notify.calls[0].body.includes('最终结果：'))
+    assert.ok(notify.calls[0].body.length < 600, `body too long: ${notify.calls[0].body.length}`)
+    assert.ok(notify.calls[0].body.endsWith('…'))
+
+    const askNotify = makeNotify()
+    const notifier2 = createTaskNotifier({ notify: askNotify, log })
+    const questions = Array.from({ length: 12 }, (_, index) => ({
+      id: `q${index}`,
+      question: `问题 ${index}？${'y'.repeat(80)}`,
+      options: [{ label: `选项 ${index}`, description: 'z'.repeat(200) }],
+    }))
+    notifier2.handle(sessionOf('sess-longask', undefined), askCall('call-long', questions))
+    await tick()
+    assert.ok(askNotify.calls[0].body.length <= 901, `ask body too long: ${askNotify.calls[0].body.length}`)
+    assert.ok(askNotify.calls[0].body.endsWith('…'))
+    notifier.dispose()
+    notifier2.dispose()
+  })
+
+  await run('T23 describeUserQuestion is a pure mapper with a safe fallback', () => {
+    const fromObject = describeUserQuestion(
+      'abcdef123456',
+      { questions: [{ question: '选哪个？', options: [{ label: 'A' }] }] },
+      '重构方案',
+    )
+    assert.equal(fromObject.title, '需要你的选择')
+    assert.equal(fromObject.body, '会话「重构方案」等待你的回答：\n1. 选哪个？\n  选项：\n  1. A')
+    assert.equal(describeUserQuestion('abcdef123456', 'broken'), undefined)
+    assert.equal(describeUserQuestion('abcdef123456', { questions: [] }), undefined)
+  })
+
+  await run('T24 intermediate tool-call assistant messages never become the final result', async () => {
+    const notify = makeNotify()
+    const notifier = createTaskNotifier({ notify, log })
+    const session = sessionOf('sess-toolcall', undefined)
+    notifier.handle(session, {
+      type: 'assistant/message',
+      data: {
+        turn: 1,
+        step: 1,
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'text', text: '我先查一下' },
+            { type: 'tool-call', id: 'call-1', name: 'bash', arguments: '{}' },
+          ],
+        },
+      },
+    })
+    notifier.handle(session, assistantMessage(1, 2, '真正的最终答案'))
+    notifier.handle(session, turnEnd(1, { kind: 'completed' }))
+    await tick()
+    assert.match(notify.calls[0].body, /最终结果：真正的最终答案/)
+    assert.doesNotMatch(notify.calls[0].body, /我先查一下/)
+    notifier.dispose()
   })
 
   console.log(`\n${passed} checks passed`)
